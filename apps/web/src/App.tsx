@@ -1,5 +1,5 @@
 import { generateResume, type JobDescription, type ResumeEntry, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
 type StoredState = {
   entries: ResumeEntry[];
@@ -8,6 +8,7 @@ type StoredState = {
 };
 
 type AppLocale = ResumeEntry["locale"];
+type StatusTone = "success" | "error";
 
 type UiText = {
   eyebrow: string;
@@ -23,6 +24,27 @@ type UiText = {
   statsJobs: string;
   helpTitle: string;
   helpSteps: string[];
+  quickStartTitle: string;
+  quickStartEntries: string;
+  quickStartJd: string;
+  quickStartGenerate: string;
+  modeSimple: string;
+  modeFull: string;
+  experienceBankHint: string;
+  stickyLocale: string;
+  stickyTemplate: string;
+  stickyJd: string;
+  stickyEntries: string;
+  stickyNone: string;
+  panelAdvanced: string;
+  advancedOpen: string;
+  advancedClose: string;
+  emptyEntriesTitle: string;
+  emptyEntriesBody: string;
+  emptyJdTitle: string;
+  emptyJdBody: string;
+  emptyTemplateTitle: string;
+  emptyTemplateBody: string;
   panelEntries: string;
   labelTitle: string;
   labelCategory: string;
@@ -56,8 +78,11 @@ type UiText = {
   btnGenerate: string;
   btnExportMarkdown: string;
   btnExportDbJson: string;
+  btnImportDbJson: string;
   outputMarkdown: string;
   outputTrace: string;
+  storageNoticePersist: string;
+  storageNoticeLimit: string;
   msgStarterTemplatesEnsured: string;
   msgJdImported: string;
   msgInvalidJdJson: string;
@@ -69,6 +94,8 @@ type UiText = {
   msgImportedJdSourceMismatch: string;
   msgTemplateLocaleMismatch: string;
   msgSelectedJdSourceMismatch: string;
+  msgDbImported: string;
+  msgInvalidDbJson: string;
   catSummary: string;
   catExperience: string;
   catProject: string;
@@ -112,7 +139,28 @@ const UI_TEXT: Record<AppLocale, UiText> = {
       "選擇中文模板後按 Generate。",
       "匯出 Markdown，並檢查 Trace JSON 選取理由。",
     ],
-    panelEntries: "1) 履歷詞條",
+    quickStartTitle: "快速開始（3 步）",
+    quickStartEntries: "1) 建立詞條",
+    quickStartJd: "2) 加入 JD",
+    quickStartGenerate: "3) 產生履歷",
+    modeSimple: "簡易模式",
+    modeFull: "完整模式",
+    experienceBankHint: "Experience Bank：你建立或匯入的詞條都在這裡。",
+    stickyLocale: "語言",
+    stickyTemplate: "模板",
+    stickyJd: "JD",
+    stickyEntries: "詞條",
+    stickyNone: "未選擇",
+    panelAdvanced: "進階設定",
+    advancedOpen: "展開進階設定",
+    advancedClose: "收合進階設定",
+    emptyEntriesTitle: "目前還沒有詞條",
+    emptyEntriesBody: "先新增一筆，或在進階設定匯入履歷。",
+    emptyJdTitle: "目前還沒有 JD",
+    emptyJdBody: "貼上 JD 文字，或匯入 jd-fetch JSON。",
+    emptyTemplateTitle: "沒有可用模板",
+    emptyTemplateBody: "可在進階設定建立模板，或點「補齊內建模板」。",
+    panelEntries: "1) Experience Bank / 履歷詞條",
     labelTitle: "標題",
     labelCategory: "分類",
     labelContent: "內容",
@@ -145,8 +193,11 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     btnGenerate: "生成履歷",
     btnExportMarkdown: "匯出 Markdown",
     btnExportDbJson: "匯出 DB JSON",
+    btnImportDbJson: "匯入 DB JSON",
     outputMarkdown: "輸出 Markdown",
     outputTrace: "輸出 Trace JSON",
+    storageNoticePersist: "同一台電腦、同一個瀏覽器、同一個網域路徑下，重開頁面資料會保留。",
+    storageNoticeLimit: "清瀏覽器資料、換瀏覽器或換裝置後，不會自動帶入原資料。",
     msgStarterTemplatesEnsured: "已補齊內建模板：Reverse Chronological + Hybrid。",
     msgJdImported: "JD JSON 已匯入。",
     msgInvalidJdJson: "JD JSON 格式錯誤。",
@@ -158,6 +209,8 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     msgImportedJdSourceMismatch: "匯入的 JD URL 與語言模式不符。",
     msgTemplateLocaleMismatch: "請選擇與目前語言模式一致的模板。",
     msgSelectedJdSourceMismatch: "所選 JD 來源與目前語言模式不符。",
+    msgDbImported: "DB JSON 已匯入並回復。",
+    msgInvalidDbJson: "DB JSON 格式錯誤。",
     catSummary: "摘要",
     catExperience: "經歷",
     catProject: "專案",
@@ -191,7 +244,28 @@ const UI_TEXT: Record<AppLocale, UiText> = {
       "Choose an English template and click Generate.",
       "Export Markdown and review Trace JSON selection reasons.",
     ],
-    panelEntries: "1) Resume Entries",
+    quickStartTitle: "Quick Start (3 steps)",
+    quickStartEntries: "1) Add entries",
+    quickStartJd: "2) Add JD",
+    quickStartGenerate: "3) Generate",
+    modeSimple: "Simple Mode",
+    modeFull: "Full Mode",
+    experienceBankHint: "Experience Bank: all reusable entries live in this section.",
+    stickyLocale: "Locale",
+    stickyTemplate: "Template",
+    stickyJd: "JD",
+    stickyEntries: "Entries",
+    stickyNone: "none",
+    panelAdvanced: "Advanced",
+    advancedOpen: "Open Advanced",
+    advancedClose: "Close Advanced",
+    emptyEntriesTitle: "No entries yet",
+    emptyEntriesBody: "Add your first entry or import a resume in Advanced.",
+    emptyJdTitle: "No JD yet",
+    emptyJdBody: "Paste JD text or import jd-fetch JSON.",
+    emptyTemplateTitle: "No template available",
+    emptyTemplateBody: "Create one in Advanced, or click Ensure Starter Templates.",
+    panelEntries: "1) Experience Bank / Resume Entries",
     labelTitle: "Title",
     labelCategory: "Category",
     labelContent: "Content",
@@ -224,8 +298,11 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     btnGenerate: "Generate",
     btnExportMarkdown: "Export Markdown",
     btnExportDbJson: "Export DB JSON",
+    btnImportDbJson: "Import DB JSON",
     outputMarkdown: "Output Markdown",
     outputTrace: "Trace JSON",
+    storageNoticePersist: "On the same computer, browser, and site path, your data persists after reopening.",
+    storageNoticeLimit: "Data does not carry over automatically after clearing browser data, switching browser, or switching device.",
     msgStarterTemplatesEnsured: "Starter templates ensured: Reverse Chronological + Hybrid.",
     msgJdImported: "JD JSON imported.",
     msgInvalidJdJson: "Invalid JD JSON format.",
@@ -237,6 +314,8 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     msgImportedJdSourceMismatch: "Imported JD URL does not match current language mode.",
     msgTemplateLocaleMismatch: "Please select a template that matches current language mode.",
     msgSelectedJdSourceMismatch: "Selected JD source does not match current language mode.",
+    msgDbImported: "DB JSON imported and restored.",
+    msgInvalidDbJson: "Invalid DB JSON format.",
     catSummary: "summary",
     catExperience: "experience",
     catProject: "project",
@@ -496,6 +575,8 @@ const App = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialState.templates[0]?.id ?? starterTemplates[0].id);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [showHelp, setShowHelp] = useState(false);
+  const [simpleMode, setSimpleMode] = useState(true);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [entryTitle, setEntryTitle] = useState("");
   const [entryContent, setEntryContent] = useState("");
@@ -518,6 +599,8 @@ const App = () => {
   const [customResumeLocale, setCustomResumeLocale] = useState<ResumeEntry["locale"]>("zh-TW");
   const [entryFilter, setEntryFilter] = useState<"all" | ResumeEntry["category"]>("all");
   const [importMessage, setImportMessage] = useState("");
+  const [importTone, setImportTone] = useState<StatusTone>("success");
+  const dbImportInputRef = useRef<HTMLInputElement | null>(null);
 
   const text = UI_TEXT[activeLocale];
 
@@ -541,6 +624,15 @@ const App = () => {
 
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId), [jobs, selectedJobId]);
 
+  const setStatus = (message: string, tone: StatusTone): void => {
+    setImportMessage(message);
+    setImportTone(tone);
+  };
+
+  const jumpToSection = (id: string): void => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   useEffect(() => {
     setEntryLocale(activeLocale);
     setTemplateLocale(activeLocale);
@@ -556,6 +648,18 @@ const App = () => {
       setSelectedJobId(localeJobs[0]?.id ?? "");
     }
   }, [activeLocale, localeTemplates, localeJobs, selectedTemplate, selectedJobId]);
+
+  useEffect(() => {
+    if (!importMessage) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setImportMessage("");
+    }, 5000);
+
+    return () => window.clearTimeout(timeout);
+  }, [importMessage]);
 
   const writeState = (next: StoredState) => {
     persist(next);
@@ -597,7 +701,7 @@ const App = () => {
   const installStarterTemplates = () => {
     const nextTemplates = ensureStarterTemplates(templates);
     writeState({ entries, templates: nextTemplates, jobs });
-    setImportMessage(text.msgStarterTemplatesEnsured);
+    setStatus(text.msgStarterTemplatesEnsured, "success");
   };
 
   const addTemplate = () => {
@@ -625,7 +729,7 @@ const App = () => {
 
     const normalizedUrl = jdUrl.trim();
     if (normalizedUrl && !isAllowedJdDomain(normalizedUrl, activeLocale)) {
-      setImportMessage(text.msgUrlSourceMismatch);
+      setStatus(text.msgUrlSourceMismatch, "error");
       return;
     }
 
@@ -651,7 +755,7 @@ const App = () => {
         return;
       }
       if (parsed.url && !isAllowedJdDomain(parsed.url, activeLocale)) {
-        setImportMessage(text.msgImportedJdSourceMismatch);
+        setStatus(text.msgImportedJdSourceMismatch, "error");
         return;
       }
 
@@ -667,9 +771,9 @@ const App = () => {
       writeState({ entries, templates, jobs: nextJobs });
       setSelectedJobId(jd.id);
       setJdJson("");
-      setImportMessage(text.msgJdImported);
+      setStatus(text.msgJdImported, "success");
     } catch {
-      setImportMessage(text.msgInvalidJdJson);
+      setStatus(text.msgInvalidJdJson, "error");
     }
   };
 
@@ -680,7 +784,7 @@ const App = () => {
 
     const importedEntries = parseImportedResume(customResumeText, customResumeLocale);
     if (importedEntries.length === 0) {
-      setImportMessage(text.msgNoParsableResume);
+      setStatus(text.msgNoParsableResume, "error");
       return;
     }
 
@@ -688,7 +792,7 @@ const App = () => {
     const nextTemplates = [derivedTemplate, ...templates];
     writeState({ entries: [...importedEntries, ...entries], templates: nextTemplates, jobs });
     setSelectedTemplateId(derivedTemplate.id);
-    setImportMessage(`${text.msgImportedResumeCount(importedEntries.length)} ${text.msgTemplateCreated}`);
+    setStatus(`${text.msgImportedResumeCount(importedEntries.length)} ${text.msgTemplateCreated}`, "success");
   };
 
   const readUploadedText = async (
@@ -703,13 +807,13 @@ const App = () => {
 
     const extension = getFileExtension(file.name);
     if (!allowedExtensions.has(extension)) {
-      setImportMessage(text.msgUnsupportedFileType(extension || "unknown"));
+      setStatus(text.msgUnsupportedFileType(extension || "unknown"), "error");
       event.target.value = "";
       return;
     }
 
     if (file.size > MAX_IMPORT_FILE_BYTES) {
-      setImportMessage(text.msgFileTooLarge);
+      setStatus(text.msgFileTooLarge, "error");
       event.target.value = "";
       return;
     }
@@ -724,11 +828,11 @@ const App = () => {
       return;
     }
     if (selectedTemplate.locale !== activeLocale) {
-      setImportMessage(text.msgTemplateLocaleMismatch);
+      setStatus(text.msgTemplateLocaleMismatch, "error");
       return;
     }
     if (selectedJob.sourceUrl && !isAllowedJdDomain(selectedJob.sourceUrl, activeLocale)) {
-      setImportMessage(text.msgSelectedJdSourceMismatch);
+      setStatus(text.msgSelectedJdSourceMismatch, "error");
       return;
     }
 
@@ -757,6 +861,27 @@ const App = () => {
     URL.revokeObjectURL(url);
   };
 
+  const importStateFromFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const raw = await file.text();
+      const parsed = parseJsonSafely<Partial<StoredState>>(raw);
+      const restored = normalizeState(parsed);
+      writeState(restored);
+      setSelectedTemplateId(restored.templates[0]?.id ?? "");
+      setSelectedJobId(restored.jobs[0]?.id ?? "");
+      setStatus(text.msgDbImported, "success");
+    } catch {
+      setStatus(text.msgInvalidDbJson, "error");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
   return (
     <main className="layout">
       <header className="hero">
@@ -772,11 +897,43 @@ const App = () => {
               {text.langEn}
             </button>
           </div>
+          <div className="mode-switch" role="tablist" aria-label="Display mode">
+            <button
+              className={simpleMode ? "chip active" : "chip"}
+              onClick={() => {
+                setSimpleMode(true);
+                setShowAdvanced(false);
+              }}
+              role="tab"
+            >
+              {text.modeSimple}
+            </button>
+            <button
+              className={!simpleMode ? "chip active" : "chip"}
+              onClick={() => {
+                setSimpleMode(false);
+                setShowAdvanced(true);
+              }}
+              role="tab"
+            >
+              {text.modeFull}
+            </button>
+          </div>
           <button className="help-btn" onClick={() => setShowHelp((current) => !current)} aria-expanded={showHelp}>
             {showHelp ? text.helpClose : text.helpOpen}
           </button>
         </div>
         <p className="source-hint">{text.sourceHint}</p>
+        <p className="storage-note">{text.storageNoticePersist}</p>
+        <p className="storage-note">{text.storageNoticeLimit}</p>
+        <div className="quick-start">
+          <strong>{text.quickStartTitle}</strong>
+          <div className="quick-actions">
+            <button className="chip" onClick={() => jumpToSection("entries-section")}>{text.quickStartEntries}</button>
+            <button className="chip" onClick={() => jumpToSection("jd-section")}>{text.quickStartJd}</button>
+            <button className="chip" onClick={() => jumpToSection("generate-section")}>{text.quickStartGenerate}</button>
+          </div>
+        </div>
         <div className="stat-row">
           <article className="stat-card">
             <span>{text.statsEntries}</span>
@@ -793,6 +950,18 @@ const App = () => {
         </div>
       </header>
 
+      <section className="sticky-summary">
+        <span><strong>{text.stickyLocale}:</strong> {activeLocale}</span>
+        <span><strong>{text.stickyTemplate}:</strong> {selectedTemplate?.name ?? text.stickyNone}</span>
+        <span>
+          <strong>{text.stickyJd}:</strong>{" "}
+          {selectedJob ? new Date(selectedJob.createdAt).toLocaleString() : text.stickyNone}
+        </span>
+        <span><strong>{text.stickyEntries}:</strong> {localeEntries.length}</span>
+      </section>
+
+      {importMessage ? <p className={`import-status ${importTone === "error" ? "is-error" : "is-success"}`}>{importMessage}</p> : null}
+
       {showHelp ? (
         <section className="panel panel-wide help-panel">
           <h2>{text.helpTitle}</h2>
@@ -805,8 +974,9 @@ const App = () => {
       ) : null}
 
       <div className="board">
-        <section className="panel panel-wide">
+        <section className="panel panel-wide" id="entries-section">
           <h2>{text.panelEntries}</h2>
+          <p>{text.experienceBankHint}</p>
           <div className="grid two">
             <input aria-label={text.labelTitle} value={entryTitle} onChange={(event) => setEntryTitle(event.target.value)} placeholder={text.labelTitle} />
             <select aria-label={text.labelCategory} value={entryCategory} onChange={(event) => setEntryCategory(event.target.value as ResumeEntry["category"])}>
@@ -853,46 +1023,26 @@ const App = () => {
               {text.filterAchievement}
             </button>
           </div>
-          <ul>
-            {visibleEntries.map((entry) => (
-              <li key={entry.id}>
-                <strong>{entry.title}</strong> [{entry.category}] ({entry.locale})
-                <div>{entry.content}</div>
-                <small>{entry.tags.join(", ") || text.noTags}</small>
-                <button className="btn-danger" onClick={() => removeEntry(entry.id)}>{text.btnDelete}</button>
-              </li>
-            ))}
-          </ul>
+          {visibleEntries.length === 0 ? (
+            <div className="empty-state">
+              <strong>{text.emptyEntriesTitle}</strong>
+              <p>{text.emptyEntriesBody}</p>
+            </div>
+          ) : (
+            <ul>
+              {visibleEntries.map((entry) => (
+                <li key={entry.id}>
+                  <strong>{entry.title}</strong> [{entry.category}] ({entry.locale})
+                  <div>{entry.content}</div>
+                  <small>{entry.tags.join(", ") || text.noTags}</small>
+                  <button className="btn-danger" onClick={() => removeEntry(entry.id)}>{text.btnDelete}</button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
-        <section className="panel">
-          <h2>{text.panelTemplates}</h2>
-          <p>{text.templatesIntro}</p>
-          <button className="btn-secondary" onClick={installStarterTemplates}>{text.btnEnsureStarterTemplates}</button>
-          <div className="grid two">
-            <input aria-label={text.placeholderTemplateName} value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder={text.placeholderTemplateName} />
-            <select aria-label={text.labelLocale} value={templateLocale} onChange={(event) => setTemplateLocale(event.target.value as ResumeTemplate["locale"])}>
-              <option value="zh-TW">zh-TW</option>
-              <option value="en-AU">en-AU</option>
-            </select>
-          </div>
-          <textarea
-            rows={5}
-            value={templateSections}
-            onChange={(event) => setTemplateSections(event.target.value)}
-            placeholder={text.placeholderTemplateSections}
-          />
-          <button className="btn-primary" onClick={addTemplate}>{text.btnAddTemplate}</button>
-          <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)}>
-            {localeTemplates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.name} ({template.locale})
-              </option>
-            ))}
-          </select>
-        </section>
-
-        <section className="panel">
+        <section className="panel" id="jd-section">
           <h2>{text.panelJob}</h2>
           <input aria-label={text.jdUrlPlaceholder} value={jdUrl} onChange={(event) => setJdUrl(event.target.value)} placeholder={text.jdUrlPlaceholder} />
           <textarea aria-label={text.jdTextPlaceholder} value={jdText} onChange={(event) => setJdText(event.target.value)} placeholder={text.jdTextPlaceholder} rows={6} />
@@ -913,44 +1063,105 @@ const App = () => {
               </option>
             ))}
           </select>
+          {localeJobs.length === 0 ? (
+            <div className="empty-state">
+              <strong>{text.emptyJdTitle}</strong>
+              <p>{text.emptyJdBody}</p>
+            </div>
+          ) : null}
         </section>
 
-        <section className="panel panel-wide">
-          <h2>{text.panelImport}</h2>
-          <p>{text.importResumeIntro}</p>
-          <p>{text.importResumeNote}</p>
-          <select value={customResumeLocale} onChange={(event) => setCustomResumeLocale(event.target.value as ResumeEntry["locale"])}>
-            <option value="zh-TW">zh-TW</option>
-            <option value="en-AU">en-AU</option>
-          </select>
-          <input
-            type="file"
-            accept=".md,.txt,text/markdown,text/plain"
-            onChange={(event) => {
-              void readUploadedText(event, setCustomResumeText, ALLOWED_RESUME_EXTENSIONS);
-            }}
-          />
-          <textarea
-            value={customResumeText}
-            onChange={(event) => setCustomResumeText(event.target.value)}
-            placeholder={text.resumeTextPlaceholder}
-            rows={8}
-          />
-          <button className="btn-primary" onClick={importCustomResume}>{text.btnImportResume}</button>
-          {importMessage ? <p className="import-status">{importMessage}</p> : null}
-        </section>
-
-        <section className="panel panel-wide">
+        <section className="panel panel-wide" id="generate-section">
           <h2>{text.panelGenerate}</h2>
+          <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)}>
+            <option value="">{text.emptyTemplateTitle}</option>
+            {localeTemplates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name} ({template.locale})
+              </option>
+            ))}
+          </select>
+          {localeTemplates.length === 0 ? (
+            <div className="empty-state">
+              <strong>{text.emptyTemplateTitle}</strong>
+              <p>{text.emptyTemplateBody}</p>
+            </div>
+          ) : null}
           <div className="actions">
             <button className="btn-primary" onClick={runGenerate}>{text.btnGenerate}</button>
             <button className="btn-secondary" onClick={exportMarkdown} disabled={!generatedMd}>{text.btnExportMarkdown}</button>
             <button className="btn-secondary" onClick={exportState}>{text.btnExportDbJson}</button>
+            <button className="btn-secondary" onClick={() => dbImportInputRef.current?.click()}>{text.btnImportDbJson}</button>
           </div>
+          <input
+            ref={dbImportInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="sr-only"
+            onChange={(event) => {
+              void importStateFromFile(event);
+            }}
+          />
           <h3>{text.outputMarkdown}</h3>
           <textarea value={generatedMd} readOnly rows={14} />
           <h3>{text.outputTrace}</h3>
           <textarea value={traceJson} readOnly rows={10} />
+        </section>
+
+        <section className="panel panel-wide advanced-panel" id="advanced-section">
+          <div className="advanced-header">
+            <h2>{text.panelAdvanced}</h2>
+            <button className="btn-secondary" onClick={() => setShowAdvanced((current) => !current)}>
+              {showAdvanced ? text.advancedClose : text.advancedOpen}
+            </button>
+          </div>
+          {showAdvanced ? (
+            <div className="advanced-grid">
+              <section className="panel nested-panel">
+                <h2>{text.panelTemplates}</h2>
+                <p>{text.templatesIntro}</p>
+                <button className="btn-secondary" onClick={installStarterTemplates}>{text.btnEnsureStarterTemplates}</button>
+                <div className="grid two">
+                  <input aria-label={text.placeholderTemplateName} value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder={text.placeholderTemplateName} />
+                  <select aria-label={text.labelLocale} value={templateLocale} onChange={(event) => setTemplateLocale(event.target.value as ResumeTemplate["locale"])}>
+                    <option value="zh-TW">zh-TW</option>
+                    <option value="en-AU">en-AU</option>
+                  </select>
+                </div>
+                <textarea
+                  rows={5}
+                  value={templateSections}
+                  onChange={(event) => setTemplateSections(event.target.value)}
+                  placeholder={text.placeholderTemplateSections}
+                />
+                <button className="btn-primary" onClick={addTemplate}>{text.btnAddTemplate}</button>
+              </section>
+
+              <section className="panel nested-panel">
+                <h2>{text.panelImport}</h2>
+                <p>{text.importResumeIntro}</p>
+                <p>{text.importResumeNote}</p>
+                <select value={customResumeLocale} onChange={(event) => setCustomResumeLocale(event.target.value as ResumeEntry["locale"])}>
+                  <option value="zh-TW">zh-TW</option>
+                  <option value="en-AU">en-AU</option>
+                </select>
+                <input
+                  type="file"
+                  accept=".md,.txt,text/markdown,text/plain"
+                  onChange={(event) => {
+                    void readUploadedText(event, setCustomResumeText, ALLOWED_RESUME_EXTENSIONS);
+                  }}
+                />
+                <textarea
+                  value={customResumeText}
+                  onChange={(event) => setCustomResumeText(event.target.value)}
+                  placeholder={text.resumeTextPlaceholder}
+                  rows={8}
+                />
+                <button className="btn-primary" onClick={importCustomResume}>{text.btnImportResume}</button>
+              </section>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>

@@ -6,6 +6,8 @@ Designed for GitHub Pages deployment with optional local Playwright helper for j
 ## Features
 
 - Local resume entry bank (no required backend)
+- Simple mode (3-step flow) and Full mode (advanced controls)
+- Experience Bank-first UI with quick section jumps
 - Starter templates:
   - Reverse Chronological (ATS-friendly)
   - Hybrid / Combination (skills-focused)
@@ -13,6 +15,7 @@ Designed for GitHub Pages deployment with optional local Playwright helper for j
 - Optional JD URL capture (`104`, `LinkedIn`, `Seek`) using local `jd-fetch`
 - Tailored resume generation (`markdown + trace json`)
 - Custom resume import (`.md` / `.txt`) and state import/export (`.json`)
+- One-click DB restore via `Import DB JSON`
 
 ## Project Structure
 
@@ -29,6 +32,17 @@ npm run dev:web
 ```
 
 Open the local URL shown by Vite.
+
+Default flow:
+1. Add entries in **Experience Bank**
+2. Add JD text/JSON
+3. Generate and export markdown
+
+Advanced template editing and custom resume import are available in the **Advanced** section.
+
+Storage behavior:
+- On the same computer, browser, and site path, data persists after reopening the page.
+- Data does not carry over automatically after clearing browser data, switching browser, or switching device.
 
 ## Build and Verify
 
