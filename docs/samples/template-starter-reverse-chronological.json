@@ -1,0 +1,12 @@
+{
+  "id": "starter-reverse-chronological",
+  "name": "Reverse Chronological (ATS-friendly)",
+  "locale": "en-AU",
+  "sections": [
+    { "name": "summary", "maxItems": 2, "preferredTags": ["summary", "profile"] },
+    { "name": "experience", "maxItems": 5, "preferredTags": ["experience", "work"] },
+    { "name": "project", "maxItems": 2, "preferredTags": ["project", "delivery"] },
+    { "name": "skill", "maxItems": 8, "preferredTags": ["skill", "tools", "tech"] },
+    { "name": "achievement", "maxItems": 3, "preferredTags": ["achievement", "impact"] }
+  ]
+}

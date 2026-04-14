@@ -1,0 +1,122 @@
+[
+  {
+    "id": "entry-001",
+    "category": "summary",
+    "title": "Frontend Engineer Profile",
+    "content": "Frontend engineer with 6+ years in React, TypeScript and product delivery across APAC teams.",
+    "locale": "en-AU",
+    "tags": ["summary", "react", "typescript", "apac"],
+    "weight": 3,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-002",
+    "category": "experience",
+    "title": "Senior Frontend Engineer - Fintech Platform",
+    "content": "Led migration from legacy SPA to React + TypeScript, reducing release regression defects by 42% over two quarters.",
+    "locale": "en-AU",
+    "tags": ["experience", "react", "typescript", "migration", "quality"],
+    "weight": 5,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-003",
+    "category": "experience",
+    "title": "Platform Collaboration",
+    "content": "Partnered with backend and product managers to deliver REST API integrations and analytics instrumentation.",
+    "locale": "en-AU",
+    "tags": ["experience", "api", "analytics", "cross-functional"],
+    "weight": 4,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-004",
+    "category": "project",
+    "title": "Design System Rollout",
+    "content": "Built reusable component library with Storybook and accessibility checks, adopted by 4 product squads.",
+    "locale": "en-AU",
+    "tags": ["project", "design-system", "storybook", "accessibility"],
+    "weight": 4,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-005",
+    "category": "project",
+    "title": "Performance Optimization",
+    "content": "Improved web vitals by code splitting and rendering optimization, reducing p95 page load from 4.8s to 2.1s.",
+    "locale": "en-AU",
+    "tags": ["project", "performance", "web-vitals", "optimization"],
+    "weight": 5,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-006",
+    "category": "skill",
+    "title": "Core Frontend Stack",
+    "content": "React, TypeScript, Next.js, Testing Library, Playwright",
+    "locale": "en-AU",
+    "tags": ["skill", "react", "typescript", "playwright", "nextjs"],
+    "weight": 5,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-007",
+    "category": "skill",
+    "title": "Collaboration",
+    "content": "Agile delivery, stakeholder communication, mentoring",
+    "locale": "en-AU",
+    "tags": ["skill", "agile", "stakeholder", "mentoring"],
+    "weight": 3,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-008",
+    "category": "achievement",
+    "title": "Release Stability",
+    "content": "Introduced CI quality gates and reduced hotfix incidents by 37%.",
+    "locale": "en-AU",
+    "tags": ["achievement", "ci", "quality", "delivery"],
+    "weight": 4,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-009",
+    "category": "experience",
+    "title": "Security and Compliance Support",
+    "content": "Worked with security team on OAuth flows and audit logging requirements for regulated customers.",
+    "locale": "en-AU",
+    "tags": ["experience", "security", "oauth", "compliance"],
+    "weight": 2,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-010",
+    "category": "project",
+    "title": "Experimentation Framework",
+    "content": "Implemented A/B test framework and event taxonomy for conversion experiments.",
+    "locale": "en-AU",
+    "tags": ["project", "experimentation", "analytics", "conversion"],
+    "weight": 3,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-011",
+    "category": "skill",
+    "title": "Cloud and DevOps",
+    "content": "AWS, GitHub Actions, Docker, observability tooling",
+    "locale": "en-AU",
+    "tags": ["skill", "aws", "github-actions", "docker", "observability"],
+    "weight": 2,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  },
+  {
+    "id": "entry-012",
+    "category": "achievement",
+    "title": "Mentoring Impact",
+    "content": "Mentored 3 junior engineers who were promoted within 12 months.",
+    "locale": "en-AU",
+    "tags": ["achievement", "mentoring", "team-growth"],
+    "weight": 2,
+    "updatedAt": "2026-04-14T10:00:00.000Z"
+  }
+]

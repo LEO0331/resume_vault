@@ -1,0 +1,92 @@
+[
+  {
+    "entryId": "entry-002",
+    "score": 40,
+    "reasons": [
+      "overlap:11",
+      "tagBoost:1",
+      "weight:5"
+    ]
+  },
+  {
+    "entryId": "entry-001",
+    "score": 38,
+    "reasons": [
+      "overlap:11",
+      "tagBoost:1",
+      "weight:3"
+    ]
+  },
+  {
+    "entryId": "entry-003",
+    "score": 27,
+    "reasons": [
+      "overlap:7",
+      "tagBoost:1",
+      "weight:4"
+    ]
+  },
+  {
+    "entryId": "entry-006",
+    "score": 25,
+    "reasons": [
+      "overlap:6",
+      "tagBoost:1",
+      "weight:5"
+    ]
+  },
+  {
+    "entryId": "entry-008",
+    "score": 24,
+    "reasons": [
+      "overlap:6",
+      "tagBoost:1",
+      "weight:4"
+    ]
+  },
+  {
+    "entryId": "entry-004",
+    "score": 21,
+    "reasons": [
+      "overlap:5",
+      "tagBoost:1",
+      "weight:4"
+    ]
+  },
+  {
+    "entryId": "entry-007",
+    "score": 17,
+    "reasons": [
+      "overlap:4",
+      "tagBoost:1",
+      "weight:3"
+    ]
+  },
+  {
+    "entryId": "entry-009",
+    "score": 10,
+    "reasons": [
+      "overlap:2",
+      "tagBoost:1",
+      "weight:2"
+    ]
+  },
+  {
+    "entryId": "entry-012",
+    "score": 10,
+    "reasons": [
+      "overlap:2",
+      "tagBoost:1",
+      "weight:2"
+    ]
+  },
+  {
+    "entryId": "entry-011",
+    "score": 8,
+    "reasons": [
+      "overlap:2",
+      "tagBoost:0",
+      "weight:2"
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "name": "resume-vault",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web",
+    "packages/core",
+    "tools/jd-fetch"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "preview:web": "npm --workspace apps/web run preview",
+    "typecheck": "npm --workspace apps/web run typecheck && npm --workspace packages/core run typecheck && npm --workspace tools/jd-fetch run typecheck",
+    "jd:fetch": "npm --workspace tools/jd-fetch run fetch --",
+    "test": "npx vitest run",
+    "test:coverage": "npx vitest run --coverage",
+    "test:unit": "npx vitest run packages/core/tests",
+    "test:adapters": "npx vitest run tools/jd-fetch/tests"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^4.1.4",
+    "vitest": "^4.1.4"
+  }
+}

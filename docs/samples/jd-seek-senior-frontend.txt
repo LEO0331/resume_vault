@@ -1,0 +1,17 @@
+Senior Frontend Engineer (React/TypeScript) - Sydney
+
+We are looking for a Senior Frontend Engineer to deliver customer-facing web features in a fast-paced product team.
+
+Key responsibilities:
+- Build and maintain React and TypeScript applications.
+- Collaborate with product managers, designers, and backend engineers.
+- Improve performance, testing quality, and release reliability.
+- Work with analytics and experimentation to improve user conversion.
+- Contribute to accessibility and design system consistency.
+
+Requirements:
+- 5+ years frontend experience.
+- Strong experience with React, TypeScript, modern testing practices.
+- Experience integrating APIs and owning feature delivery end to end.
+- Exposure to CI/CD and cloud tooling is a plus.
+- Great communication and mentoring mindset.
