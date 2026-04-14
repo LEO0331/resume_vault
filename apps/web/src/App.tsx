@@ -1,5 +1,5 @@
 import { generateResume, type JobDescription, type ResumeEntry, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
 type StoredState = {
   entries: ResumeEntry[];
@@ -7,10 +7,250 @@ type StoredState = {
   jobs: JobDescription[];
 };
 
+type AppLocale = ResumeEntry["locale"];
+
+type UiText = {
+  eyebrow: string;
+  heroTitle: string;
+  heroCopy: string;
+  langZh: string;
+  langEn: string;
+  helpOpen: string;
+  helpClose: string;
+  sourceHint: string;
+  statsEntries: string;
+  statsTemplates: string;
+  statsJobs: string;
+  helpTitle: string;
+  helpSteps: string[];
+  panelEntries: string;
+  labelTitle: string;
+  labelCategory: string;
+  labelContent: string;
+  labelTags: string;
+  labelLocale: string;
+  labelWeight: string;
+  btnAddEntry: string;
+  btnDelete: string;
+  noTags: string;
+  panelTemplates: string;
+  templatesIntro: string;
+  btnEnsureStarterTemplates: string;
+  placeholderTemplateName: string;
+  placeholderTemplateSections: string;
+  btnAddTemplate: string;
+  panelJob: string;
+  jdUrlPlaceholder: string;
+  jdTextPlaceholder: string;
+  btnSaveJd: string;
+  importFromJsonLabel: string;
+  jdJsonPlaceholder: string;
+  btnImportJdJson: string;
+  selectJdPlaceholder: string;
+  panelImport: string;
+  importResumeIntro: string;
+  resumeTextPlaceholder: string;
+  btnImportResume: string;
+  importResumeNote: string;
+  panelGenerate: string;
+  btnGenerate: string;
+  btnExportMarkdown: string;
+  btnExportDbJson: string;
+  outputMarkdown: string;
+  outputTrace: string;
+  msgStarterTemplatesEnsured: string;
+  msgJdImported: string;
+  msgInvalidJdJson: string;
+  msgNoParsableResume: string;
+  msgImportedResumeCount: (count: number) => string;
+  msgUnsupportedFileType: (ext: string) => string;
+  msgFileTooLarge: string;
+  msgUrlSourceMismatch: string;
+  msgImportedJdSourceMismatch: string;
+  msgTemplateLocaleMismatch: string;
+  msgSelectedJdSourceMismatch: string;
+  catSummary: string;
+  catExperience: string;
+  catProject: string;
+  catSkill: string;
+  catAchievement: string;
+  filterAll: string;
+  filterExperience: string;
+  filterSummary: string;
+  filterProject: string;
+  filterSkill: string;
+  filterAchievement: string;
+  msgTemplateCreated: string;
+};
+
 const STORAGE_KEY = "resume-vault/state/v1";
 const MAX_IMPORT_FILE_BYTES = 2 * 1024 * 1024;
 const ALLOWED_RESUME_EXTENSIONS = new Set([".md", ".txt"]);
-const ALLOWED_STATE_EXTENSIONS = new Set([".json"]);
+const JD_ALLOWED_DOMAINS: Record<AppLocale, string[]> = {
+  "zh-TW": ["104.com.tw"],
+  "en-AU": ["linkedin.com", "seek.com.au", "seek.co.nz"],
+};
+
+const UI_TEXT: Record<AppLocale, UiText> = {
+  "zh-TW": {
+    eyebrow: "本機履歷智慧系統",
+    heroTitle: "Resume Vault",
+    heroCopy: "可部署在 GitHub Pages 的履歷資料庫，支援 JD 匹配與自訂匯入流程。",
+    langZh: "中文模式",
+    langEn: "英文模式",
+    helpOpen: "使用說明",
+    helpClose: "關閉說明",
+    sourceHint: "中文模式只支援 104 JD URL 來源。",
+    statsEntries: "詞條數",
+    statsTemplates: "模板數",
+    statsJobs: "JD 數",
+    helpTitle: "快速使用說明",
+    helpSteps: [
+      "先選語言模式，中文模式只接受 104 URL。",
+      "在 Resume Entries 建立或匯入中文履歷詞條。",
+      "在 Job Description 貼上 JD 或匯入 jd-fetch JSON。",
+      "選擇中文模板後按 Generate。",
+      "匯出 Markdown，並檢查 Trace JSON 選取理由。",
+    ],
+    panelEntries: "1) 履歷詞條",
+    labelTitle: "標題",
+    labelCategory: "分類",
+    labelContent: "內容",
+    labelTags: "標籤",
+    labelLocale: "語系",
+    labelWeight: "權重",
+    btnAddEntry: "新增詞條",
+    btnDelete: "刪除",
+    noTags: "無標籤",
+    panelTemplates: "2) 模板庫",
+    templatesIntro: "內建起手模板：Reverse Chronological + Hybrid / Combination。",
+    btnEnsureStarterTemplates: "補齊內建模板",
+    placeholderTemplateName: "模板名稱",
+    placeholderTemplateSections: "summary|2|summary",
+    btnAddTemplate: "新增模板",
+    panelJob: "3) 職缺 JD",
+    jdUrlPlaceholder: "JD URL（可選）",
+    jdTextPlaceholder: "貼上 JD 內容",
+    btnSaveJd: "儲存 JD（文字）",
+    importFromJsonLabel: "從 jd-fetch JSON 匯入：",
+    jdJsonPlaceholder: '{"url":"...","text":"..."}',
+    btnImportJdJson: "匯入 JD JSON",
+    selectJdPlaceholder: "選擇 JD",
+    panelImport: "4) 匯入自訂履歷（自動建模板）",
+    importResumeIntro: "上傳或貼上履歷 markdown/text，轉為可重用詞條。",
+    resumeTextPlaceholder: "在此貼上履歷 markdown/text",
+    btnImportResume: "匯入履歷詞條",
+    importResumeNote: "系統會自動解析段落結構，建立新的自訂模板並把條列內容加入詞條庫。",
+    panelGenerate: "5) 生成履歷",
+    btnGenerate: "生成履歷",
+    btnExportMarkdown: "匯出 Markdown",
+    btnExportDbJson: "匯出 DB JSON",
+    outputMarkdown: "輸出 Markdown",
+    outputTrace: "輸出 Trace JSON",
+    msgStarterTemplatesEnsured: "已補齊內建模板：Reverse Chronological + Hybrid。",
+    msgJdImported: "JD JSON 已匯入。",
+    msgInvalidJdJson: "JD JSON 格式錯誤。",
+    msgNoParsableResume: "找不到可解析的履歷內容。",
+    msgImportedResumeCount: (count) => `已匯入 ${count} 筆履歷詞條。`,
+    msgUnsupportedFileType: (ext) => `不支援的檔案類型：${ext || "未知"}。`,
+    msgFileTooLarge: "檔案過大，最大支援 2 MB。",
+    msgUrlSourceMismatch: "URL 來源與語言模式不符（中文模式只接受 104）。",
+    msgImportedJdSourceMismatch: "匯入的 JD URL 與語言模式不符。",
+    msgTemplateLocaleMismatch: "請選擇與目前語言模式一致的模板。",
+    msgSelectedJdSourceMismatch: "所選 JD 來源與目前語言模式不符。",
+    catSummary: "摘要",
+    catExperience: "經歷",
+    catProject: "專案",
+    catSkill: "技能",
+    catAchievement: "成就",
+    filterAll: "全部",
+    filterExperience: "只看經歷",
+    filterSummary: "只看摘要",
+    filterProject: "只看專案",
+    filterSkill: "只看技能",
+    filterAchievement: "只看成就",
+    msgTemplateCreated: "已根據匯入履歷建立自訂模板。",
+  },
+  "en-AU": {
+    eyebrow: "Local Resume Intelligence System",
+    heroTitle: "Resume Vault",
+    heroCopy: "GitHub Pages-ready local resume database with JD matching and custom import workflows.",
+    langZh: "Chinese Mode",
+    langEn: "English Mode",
+    helpOpen: "Help",
+    helpClose: "Close Help",
+    sourceHint: "English mode supports LinkedIn and Seek JD URL sources.",
+    statsEntries: "Entries",
+    statsTemplates: "Templates",
+    statsJobs: "Job Descriptions",
+    helpTitle: "Quick Guide",
+    helpSteps: [
+      "Select language mode; English mode accepts LinkedIn/Seek URLs.",
+      "Add or import English resume entries in Resume Entries.",
+      "Paste JD text or import jd-fetch JSON in Job Description.",
+      "Choose an English template and click Generate.",
+      "Export Markdown and review Trace JSON selection reasons.",
+    ],
+    panelEntries: "1) Resume Entries",
+    labelTitle: "Title",
+    labelCategory: "Category",
+    labelContent: "Content",
+    labelTags: "Tags",
+    labelLocale: "Locale",
+    labelWeight: "Weight",
+    btnAddEntry: "Add Entry",
+    btnDelete: "Delete",
+    noTags: "no tags",
+    panelTemplates: "2) Template Bank",
+    templatesIntro: "Starter templates included: Reverse Chronological + Hybrid / Combination.",
+    btnEnsureStarterTemplates: "Ensure Starter Templates",
+    placeholderTemplateName: "Template name",
+    placeholderTemplateSections: "summary|2|summary",
+    btnAddTemplate: "Add Template",
+    panelJob: "3) Job Description",
+    jdUrlPlaceholder: "JD URL (optional)",
+    jdTextPlaceholder: "Paste JD text",
+    btnSaveJd: "Save JD from text",
+    importFromJsonLabel: "Import from jd-fetch JSON:",
+    jdJsonPlaceholder: '{"url":"...","text":"..."}',
+    btnImportJdJson: "Import JD JSON",
+    selectJdPlaceholder: "Select JD",
+    panelImport: "4) Import Custom Resume (Auto Template)",
+    importResumeIntro: "Upload or paste resume markdown/text and convert into reusable entries.",
+    resumeTextPlaceholder: "Paste resume markdown/text here",
+    btnImportResume: "Import Resume to Entries",
+    importResumeNote: "The app analyzes heading structure, creates a new custom template, and adds parsed bullets into your entry bank.",
+    panelGenerate: "5) Generate Resume",
+    btnGenerate: "Generate",
+    btnExportMarkdown: "Export Markdown",
+    btnExportDbJson: "Export DB JSON",
+    outputMarkdown: "Output Markdown",
+    outputTrace: "Trace JSON",
+    msgStarterTemplatesEnsured: "Starter templates ensured: Reverse Chronological + Hybrid.",
+    msgJdImported: "JD JSON imported.",
+    msgInvalidJdJson: "Invalid JD JSON format.",
+    msgNoParsableResume: "No parsable content found in imported resume.",
+    msgImportedResumeCount: (count) => `Imported ${count} entries from custom resume.`,
+    msgUnsupportedFileType: (ext) => `Unsupported file type: ${ext || "unknown"}.`,
+    msgFileTooLarge: "File too large. Max supported size is 2 MB.",
+    msgUrlSourceMismatch: "URL source does not match English mode (LinkedIn/Seek only).",
+    msgImportedJdSourceMismatch: "Imported JD URL does not match current language mode.",
+    msgTemplateLocaleMismatch: "Please select a template that matches current language mode.",
+    msgSelectedJdSourceMismatch: "Selected JD source does not match current language mode.",
+    catSummary: "summary",
+    catExperience: "experience",
+    catProject: "project",
+    catSkill: "skill",
+    catAchievement: "achievement",
+    filterAll: "All",
+    filterExperience: "Experience",
+    filterSummary: "Summary",
+    filterProject: "Projects",
+    filterSkill: "Skills",
+    filterAchievement: "Achievements",
+    msgTemplateCreated: "Created a custom template from imported resume structure.",
+  },
+};
 
 const starterTemplates: ResumeTemplate[] = [
   {
@@ -75,6 +315,15 @@ const parseJsonSafely = <T,>(input: string): T => {
 const getFileExtension = (fileName: string): string => {
   const dotIndex = fileName.lastIndexOf(".");
   return dotIndex === -1 ? "" : fileName.slice(dotIndex).toLowerCase();
+};
+
+const isAllowedJdDomain = (rawUrl: string, locale: AppLocale): boolean => {
+  try {
+    const hostname = new URL(rawUrl).hostname.toLowerCase();
+    return JD_ALLOWED_DOMAINS[locale].some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
 };
 
 const safeParse = (): StoredState => {
@@ -191,14 +440,62 @@ const parseImportedResume = (text: string, locale: ResumeEntry["locale"]): Resum
   return items;
 };
 
+const categoryLabelForTemplate = (category: ResumeEntry["category"]): string => {
+  switch (category) {
+    case "summary":
+      return "summary";
+    case "experience":
+      return "experience";
+    case "project":
+      return "project";
+    case "skill":
+      return "skill";
+    case "achievement":
+      return "achievement";
+    default:
+      return "experience";
+  }
+};
+
+const createTemplateFromImportedEntries = (
+  importedEntries: ResumeEntry[],
+  locale: AppLocale,
+): ResumeTemplate => {
+  const counts = new Map<ResumeEntry["category"], number>();
+  const order: ResumeEntry["category"][] = [];
+
+  for (const entry of importedEntries) {
+    if (!counts.has(entry.category)) {
+      counts.set(entry.category, 0);
+      order.push(entry.category);
+    }
+    counts.set(entry.category, (counts.get(entry.category) ?? 0) + 1);
+  }
+
+  const sections: TemplateSection[] = order.map((category) => ({
+    name: categoryLabelForTemplate(category),
+    maxItems: Math.max(1, Math.min(8, counts.get(category) ?? 1)),
+    preferredTags: [category],
+  }));
+
+  return {
+    id: uid(),
+    name: locale === "zh-TW" ? `custom-zh-${new Date().toISOString().slice(0, 10)}` : `custom-en-${new Date().toISOString().slice(0, 10)}`,
+    locale,
+    sections,
+  };
+};
+
 const initialState = safeParse();
 
 const App = () => {
   const [entries, setEntries] = useState<ResumeEntry[]>(initialState.entries);
   const [templates, setTemplates] = useState<ResumeTemplate[]>(initialState.templates);
   const [jobs, setJobs] = useState<JobDescription[]>(initialState.jobs);
+  const [activeLocale, setActiveLocale] = useState<AppLocale>("zh-TW");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialState.templates[0]?.id ?? starterTemplates[0].id);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [showHelp, setShowHelp] = useState(false);
 
   const [entryTitle, setEntryTitle] = useState("");
   const [entryContent, setEntryContent] = useState("");
@@ -219,29 +516,52 @@ const App = () => {
 
   const [customResumeText, setCustomResumeText] = useState("");
   const [customResumeLocale, setCustomResumeLocale] = useState<ResumeEntry["locale"]>("zh-TW");
-  const [dbJsonText, setDbJsonText] = useState("");
+  const [entryFilter, setEntryFilter] = useState<"all" | ResumeEntry["category"]>("all");
   const [importMessage, setImportMessage] = useState("");
 
+  const text = UI_TEXT[activeLocale];
+
+  const localeEntries = useMemo(() => entries.filter((entry) => entry.locale === activeLocale), [entries, activeLocale]);
+  const visibleEntries = useMemo(
+    () => (entryFilter === "all" ? localeEntries : localeEntries.filter((entry) => entry.category === entryFilter)),
+    [entryFilter, localeEntries],
+  );
+  const localeTemplates = useMemo(() => templates.filter((template) => template.locale === activeLocale), [templates, activeLocale]);
+  const localeJobs = useMemo(() => {
+    if (activeLocale === "zh-TW") {
+      return jobs.filter((job) => !job.sourceUrl || isAllowedJdDomain(job.sourceUrl, "zh-TW"));
+    }
+    return jobs.filter((job) => !job.sourceUrl || isAllowedJdDomain(job.sourceUrl, "en-AU"));
+  }, [jobs, activeLocale]);
+
   const selectedTemplate = useMemo(
-    () => templates.find((template) => template.id === selectedTemplateId) ?? templates[0],
+    () => templates.find((template) => template.id === selectedTemplateId),
     [templates, selectedTemplateId],
   );
 
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId), [jobs, selectedJobId]);
+
+  useEffect(() => {
+    setEntryLocale(activeLocale);
+    setTemplateLocale(activeLocale);
+    setCustomResumeLocale(activeLocale);
+  }, [activeLocale]);
+
+  useEffect(() => {
+    const fallbackTemplate = localeTemplates[0];
+    if (!selectedTemplate || selectedTemplate.locale !== activeLocale) {
+      setSelectedTemplateId(fallbackTemplate?.id ?? "");
+    }
+    if (selectedJobId && !localeJobs.some((job) => job.id === selectedJobId)) {
+      setSelectedJobId(localeJobs[0]?.id ?? "");
+    }
+  }, [activeLocale, localeTemplates, localeJobs, selectedTemplate, selectedJobId]);
 
   const writeState = (next: StoredState) => {
     persist(next);
     setEntries(next.entries);
     setTemplates(next.templates);
     setJobs(next.jobs);
-
-    if (!next.templates.some((template) => template.id === selectedTemplateId)) {
-      setSelectedTemplateId(next.templates[0]?.id ?? starterTemplates[0].id);
-    }
-
-    if (!next.jobs.some((job) => job.id === selectedJobId)) {
-      setSelectedJobId("");
-    }
   };
 
   const addEntry = () => {
@@ -277,7 +597,7 @@ const App = () => {
   const installStarterTemplates = () => {
     const nextTemplates = ensureStarterTemplates(templates);
     writeState({ entries, templates: nextTemplates, jobs });
-    setImportMessage("Starter templates ensured: Reverse Chronological + Hybrid.");
+    setImportMessage(text.msgStarterTemplatesEnsured);
   };
 
   const addTemplate = () => {
@@ -303,10 +623,16 @@ const App = () => {
       return;
     }
 
+    const normalizedUrl = jdUrl.trim();
+    if (normalizedUrl && !isAllowedJdDomain(normalizedUrl, activeLocale)) {
+      setImportMessage(text.msgUrlSourceMismatch);
+      return;
+    }
+
     const jd: JobDescription = {
       id: uid(),
-      sourceType: jdUrl.trim() ? "url" : "paste",
-      sourceUrl: jdUrl.trim() || undefined,
+      sourceType: normalizedUrl ? "url" : "paste",
+      sourceUrl: normalizedUrl || undefined,
       rawText: jdText.trim(),
       createdAt: new Date().toISOString(),
     };
@@ -324,6 +650,10 @@ const App = () => {
       if (!parsed.text?.trim()) {
         return;
       }
+      if (parsed.url && !isAllowedJdDomain(parsed.url, activeLocale)) {
+        setImportMessage(text.msgImportedJdSourceMismatch);
+        return;
+      }
 
       const jd: JobDescription = {
         id: uid(),
@@ -337,9 +667,9 @@ const App = () => {
       writeState({ entries, templates, jobs: nextJobs });
       setSelectedJobId(jd.id);
       setJdJson("");
-      setImportMessage("JD JSON imported.");
+      setImportMessage(text.msgJdImported);
     } catch {
-      setImportMessage("Invalid JD JSON format.");
+      setImportMessage(text.msgInvalidJdJson);
     }
   };
 
@@ -350,31 +680,15 @@ const App = () => {
 
     const importedEntries = parseImportedResume(customResumeText, customResumeLocale);
     if (importedEntries.length === 0) {
-      setImportMessage("No parsable content found in imported resume.");
+      setImportMessage(text.msgNoParsableResume);
       return;
     }
 
-    writeState({ entries: [...importedEntries, ...entries], templates, jobs });
-    setImportMessage(`Imported ${importedEntries.length} entries from custom resume.`);
-  };
-
-  const importStateJson = (mode: "merge" | "replace") => {
-    try {
-      const parsed = normalizeState(parseJsonSafely<Partial<StoredState>>(dbJsonText));
-      const nextState: StoredState =
-        mode === "replace"
-          ? parsed
-          : {
-              entries: [...parsed.entries, ...entries],
-              templates: ensureStarterTemplates([...parsed.templates, ...templates]),
-              jobs: [...parsed.jobs, ...jobs],
-            };
-
-      writeState(nextState);
-      setImportMessage(`State JSON ${mode} completed.`);
-    } catch {
-      setImportMessage("Invalid state JSON format.");
-    }
+    const derivedTemplate = createTemplateFromImportedEntries(importedEntries, customResumeLocale);
+    const nextTemplates = [derivedTemplate, ...templates];
+    writeState({ entries: [...importedEntries, ...entries], templates: nextTemplates, jobs });
+    setSelectedTemplateId(derivedTemplate.id);
+    setImportMessage(`${text.msgImportedResumeCount(importedEntries.length)} ${text.msgTemplateCreated}`);
   };
 
   const readUploadedText = async (
@@ -389,19 +703,19 @@ const App = () => {
 
     const extension = getFileExtension(file.name);
     if (!allowedExtensions.has(extension)) {
-      setImportMessage(`Unsupported file type: ${extension || "unknown"}.`);
+      setImportMessage(text.msgUnsupportedFileType(extension || "unknown"));
       event.target.value = "";
       return;
     }
 
     if (file.size > MAX_IMPORT_FILE_BYTES) {
-      setImportMessage("File too large. Max supported size is 2 MB.");
+      setImportMessage(text.msgFileTooLarge);
       event.target.value = "";
       return;
     }
 
-    const text = await file.text();
-    setter(text);
+    const textContent = await file.text();
+    setter(textContent);
     event.target.value = "";
   };
 
@@ -409,8 +723,16 @@ const App = () => {
     if (!selectedTemplate || !selectedJob) {
       return;
     }
+    if (selectedTemplate.locale !== activeLocale) {
+      setImportMessage(text.msgTemplateLocaleMismatch);
+      return;
+    }
+    if (selectedJob.sourceUrl && !isAllowedJdDomain(selectedJob.sourceUrl, activeLocale)) {
+      setImportMessage(text.msgSelectedJdSourceMismatch);
+      return;
+    }
 
-    const result = generateResume(selectedJob, entries, selectedTemplate);
+    const result = generateResume(selectedJob, localeEntries, selectedTemplate);
     setGeneratedMd(result.outputMd);
     setTraceJson(JSON.stringify(result.trace, null, 2));
   };
@@ -438,72 +760,118 @@ const App = () => {
   return (
     <main className="layout">
       <header className="hero">
-        <p className="eyebrow">Local Resume Intelligence System</p>
-        <h1>Resume Vault</h1>
-        <p className="hero-copy">GitHub Pages-ready local resume database with JD matching and custom import workflows.</p>
+        <p className="eyebrow">{text.eyebrow}</p>
+        <h1>{text.heroTitle}</h1>
+        <p className="hero-copy">{text.heroCopy}</p>
+        <div className="top-controls">
+          <div className="locale-switch" role="tablist" aria-label="Language mode">
+            <button className={activeLocale === "zh-TW" ? "chip active" : "chip"} onClick={() => setActiveLocale("zh-TW")} role="tab">
+              {text.langZh}
+            </button>
+            <button className={activeLocale === "en-AU" ? "chip active" : "chip"} onClick={() => setActiveLocale("en-AU")} role="tab">
+              {text.langEn}
+            </button>
+          </div>
+          <button className="help-btn" onClick={() => setShowHelp((current) => !current)} aria-expanded={showHelp}>
+            {showHelp ? text.helpClose : text.helpOpen}
+          </button>
+        </div>
+        <p className="source-hint">{text.sourceHint}</p>
         <div className="stat-row">
           <article className="stat-card">
-            <span>Entries</span>
-            <strong>{entries.length}</strong>
+            <span>{text.statsEntries}</span>
+            <strong>{localeEntries.length}</strong>
           </article>
           <article className="stat-card">
-            <span>Templates</span>
-            <strong>{templates.length}</strong>
+            <span>{text.statsTemplates}</span>
+            <strong>{localeTemplates.length}</strong>
           </article>
           <article className="stat-card">
-            <span>Job Descriptions</span>
-            <strong>{jobs.length}</strong>
+            <span>{text.statsJobs}</span>
+            <strong>{localeJobs.length}</strong>
           </article>
         </div>
       </header>
 
+      {showHelp ? (
+        <section className="panel panel-wide help-panel">
+          <h2>{text.helpTitle}</h2>
+          <ol className="help-list">
+            {text.helpSteps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
       <div className="board">
         <section className="panel panel-wide">
-          <h2>1) Resume Entries</h2>
+          <h2>{text.panelEntries}</h2>
           <div className="grid two">
-            <input value={entryTitle} onChange={(event) => setEntryTitle(event.target.value)} placeholder="Title" />
-            <select value={entryCategory} onChange={(event) => setEntryCategory(event.target.value as ResumeEntry["category"])}>
-              <option value="summary">summary</option>
-              <option value="experience">experience</option>
-              <option value="project">project</option>
-              <option value="skill">skill</option>
-              <option value="achievement">achievement</option>
+            <input aria-label={text.labelTitle} value={entryTitle} onChange={(event) => setEntryTitle(event.target.value)} placeholder={text.labelTitle} />
+            <select aria-label={text.labelCategory} value={entryCategory} onChange={(event) => setEntryCategory(event.target.value as ResumeEntry["category"])}>
+              <option value="summary">{text.catSummary}</option>
+              <option value="experience">{text.catExperience}</option>
+              <option value="project">{text.catProject}</option>
+              <option value="skill">{text.catSkill}</option>
+              <option value="achievement">{text.catAchievement}</option>
             </select>
           </div>
-          <textarea value={entryContent} onChange={(event) => setEntryContent(event.target.value)} placeholder="Content" rows={3} />
+          <textarea aria-label={text.labelContent} value={entryContent} onChange={(event) => setEntryContent(event.target.value)} placeholder={text.labelContent} rows={3} />
           <div className="grid three">
-            <input value={entryTags} onChange={(event) => setEntryTags(event.target.value)} placeholder="tags: react,typescript,api" />
-            <select value={entryLocale} onChange={(event) => setEntryLocale(event.target.value as ResumeEntry["locale"])}>
+            <input aria-label={text.labelTags} value={entryTags} onChange={(event) => setEntryTags(event.target.value)} placeholder={text.labelTags} />
+            <select aria-label={text.labelLocale} value={entryLocale} onChange={(event) => setEntryLocale(event.target.value as ResumeEntry["locale"])}>
               <option value="zh-TW">zh-TW</option>
               <option value="en-AU">en-AU</option>
             </select>
             <input
+              aria-label={text.labelWeight}
               type="number"
               value={entryWeight}
               onChange={(event) => setEntryWeight(Number(event.target.value || 1))}
-              placeholder="weight"
+              placeholder={text.labelWeight}
             />
           </div>
-          <button className="btn-primary" onClick={addEntry}>Add Entry</button>
+          <button className="btn-primary" onClick={addEntry}>{text.btnAddEntry}</button>
+          <div className="entry-filters">
+            <button className={entryFilter === "all" ? "chip active" : "chip"} onClick={() => setEntryFilter("all")}>
+              {text.filterAll}
+            </button>
+            <button className={entryFilter === "experience" ? "chip active" : "chip"} onClick={() => setEntryFilter("experience")}>
+              {text.filterExperience}
+            </button>
+            <button className={entryFilter === "summary" ? "chip active" : "chip"} onClick={() => setEntryFilter("summary")}>
+              {text.filterSummary}
+            </button>
+            <button className={entryFilter === "project" ? "chip active" : "chip"} onClick={() => setEntryFilter("project")}>
+              {text.filterProject}
+            </button>
+            <button className={entryFilter === "skill" ? "chip active" : "chip"} onClick={() => setEntryFilter("skill")}>
+              {text.filterSkill}
+            </button>
+            <button className={entryFilter === "achievement" ? "chip active" : "chip"} onClick={() => setEntryFilter("achievement")}>
+              {text.filterAchievement}
+            </button>
+          </div>
           <ul>
-            {entries.map((entry) => (
+            {visibleEntries.map((entry) => (
               <li key={entry.id}>
                 <strong>{entry.title}</strong> [{entry.category}] ({entry.locale})
                 <div>{entry.content}</div>
-                <small>{entry.tags.join(", ") || "no tags"}</small>
-                <button className="btn-danger" onClick={() => removeEntry(entry.id)}>Delete</button>
+                <small>{entry.tags.join(", ") || text.noTags}</small>
+                <button className="btn-danger" onClick={() => removeEntry(entry.id)}>{text.btnDelete}</button>
               </li>
             ))}
           </ul>
         </section>
 
         <section className="panel">
-          <h2>2) Template Bank</h2>
-          <p>Starter templates included: Reverse Chronological + Hybrid / Combination.</p>
-          <button className="btn-secondary" onClick={installStarterTemplates}>Ensure Starter Templates</button>
+          <h2>{text.panelTemplates}</h2>
+          <p>{text.templatesIntro}</p>
+          <button className="btn-secondary" onClick={installStarterTemplates}>{text.btnEnsureStarterTemplates}</button>
           <div className="grid two">
-            <input value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Template name" />
-            <select value={templateLocale} onChange={(event) => setTemplateLocale(event.target.value as ResumeTemplate["locale"])}>
+            <input aria-label={text.placeholderTemplateName} value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder={text.placeholderTemplateName} />
+            <select aria-label={text.labelLocale} value={templateLocale} onChange={(event) => setTemplateLocale(event.target.value as ResumeTemplate["locale"])}>
               <option value="zh-TW">zh-TW</option>
               <option value="en-AU">en-AU</option>
             </select>
@@ -512,11 +880,11 @@ const App = () => {
             rows={5}
             value={templateSections}
             onChange={(event) => setTemplateSections(event.target.value)}
-            placeholder="summary|2|summary"
+            placeholder={text.placeholderTemplateSections}
           />
-          <button className="btn-primary" onClick={addTemplate}>Add Template</button>
+          <button className="btn-primary" onClick={addTemplate}>{text.btnAddTemplate}</button>
           <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)}>
-            {templates.map((template) => (
+            {localeTemplates.map((template) => (
               <option key={template.id} value={template.id}>
                 {template.name} ({template.locale})
               </option>
@@ -525,21 +893,21 @@ const App = () => {
         </section>
 
         <section className="panel">
-          <h2>3) Job Description</h2>
-          <input value={jdUrl} onChange={(event) => setJdUrl(event.target.value)} placeholder="JD URL (optional)" />
-          <textarea value={jdText} onChange={(event) => setJdText(event.target.value)} placeholder="Paste JD text" rows={6} />
-          <button className="btn-primary" onClick={addJobFromPaste}>Save JD from text</button>
-          <p>Import from jd-fetch JSON:</p>
+          <h2>{text.panelJob}</h2>
+          <input aria-label={text.jdUrlPlaceholder} value={jdUrl} onChange={(event) => setJdUrl(event.target.value)} placeholder={text.jdUrlPlaceholder} />
+          <textarea aria-label={text.jdTextPlaceholder} value={jdText} onChange={(event) => setJdText(event.target.value)} placeholder={text.jdTextPlaceholder} rows={6} />
+          <button className="btn-primary" onClick={addJobFromPaste}>{text.btnSaveJd}</button>
+          <p>{text.importFromJsonLabel}</p>
           <textarea
             value={jdJson}
             onChange={(event) => setJdJson(event.target.value)}
-            placeholder='{"url":"...","text":"..."}'
+            placeholder={text.jdJsonPlaceholder}
             rows={4}
           />
-          <button className="btn-secondary" onClick={importJobJson}>Import JD JSON</button>
+          <button className="btn-secondary" onClick={importJobJson}>{text.btnImportJdJson}</button>
           <select value={selectedJobId} onChange={(event) => setSelectedJobId(event.target.value)}>
-            <option value="">Select JD</option>
-            {jobs.map((job) => (
+            <option value="">{text.selectJdPlaceholder}</option>
+            {localeJobs.map((job) => (
               <option key={job.id} value={job.id}>
                 {job.sourceType} {job.sourceUrl ? `- ${job.sourceUrl}` : ""} ({new Date(job.createdAt).toLocaleString()})
               </option>
@@ -548,8 +916,9 @@ const App = () => {
         </section>
 
         <section className="panel panel-wide">
-          <h2>4) Import Custom Resume / DB</h2>
-          <p>Upload custom resume markdown/text and convert into reusable entries.</p>
+          <h2>{text.panelImport}</h2>
+          <p>{text.importResumeIntro}</p>
+          <p>{text.importResumeNote}</p>
           <select value={customResumeLocale} onChange={(event) => setCustomResumeLocale(event.target.value as ResumeEntry["locale"])}>
             <option value="zh-TW">zh-TW</option>
             <option value="en-AU">en-AU</option>
@@ -564,43 +933,23 @@ const App = () => {
           <textarea
             value={customResumeText}
             onChange={(event) => setCustomResumeText(event.target.value)}
-            placeholder="Paste resume markdown/text here"
+            placeholder={text.resumeTextPlaceholder}
             rows={8}
           />
-          <button className="btn-primary" onClick={importCustomResume}>Import Resume to Entries</button>
-
-          <hr />
-          <p>Import external state JSON exported from another user/device.</p>
-          <input
-            type="file"
-            accept="application/json,.json"
-            onChange={(event) => {
-              void readUploadedText(event, setDbJsonText, ALLOWED_STATE_EXTENSIONS);
-            }}
-          />
-          <textarea
-            value={dbJsonText}
-            onChange={(event) => setDbJsonText(event.target.value)}
-            placeholder='{"entries":[],"templates":[],"jobs":[]}'
-            rows={6}
-          />
-          <div className="actions two-actions">
-            <button className="btn-secondary" onClick={() => importStateJson("merge")}>Import State (Merge)</button>
-            <button className="btn-danger" onClick={() => importStateJson("replace")}>Import State (Replace)</button>
-          </div>
+          <button className="btn-primary" onClick={importCustomResume}>{text.btnImportResume}</button>
           {importMessage ? <p className="import-status">{importMessage}</p> : null}
         </section>
 
         <section className="panel panel-wide">
-          <h2>5) Generate Resume</h2>
+          <h2>{text.panelGenerate}</h2>
           <div className="actions">
-            <button className="btn-primary" onClick={runGenerate}>Generate</button>
-            <button className="btn-secondary" onClick={exportMarkdown} disabled={!generatedMd}>Export Markdown</button>
-            <button className="btn-secondary" onClick={exportState}>Export DB JSON</button>
+            <button className="btn-primary" onClick={runGenerate}>{text.btnGenerate}</button>
+            <button className="btn-secondary" onClick={exportMarkdown} disabled={!generatedMd}>{text.btnExportMarkdown}</button>
+            <button className="btn-secondary" onClick={exportState}>{text.btnExportDbJson}</button>
           </div>
-          <h3>Output Markdown</h3>
+          <h3>{text.outputMarkdown}</h3>
           <textarea value={generatedMd} readOnly rows={14} />
-          <h3>Trace JSON</h3>
+          <h3>{text.outputTrace}</h3>
           <textarea value={traceJson} readOnly rows={10} />
         </section>
       </div>
