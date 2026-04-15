@@ -53,6 +53,18 @@ npm run build:web
 npm run test:e2e
 ```
 
+Playwright E2E coverage (`npm run test:e2e`) includes:
+- Import sample word bank (DB JSON) from `docs/samples`
+- Run generation from pasted job description text
+- Run generation from imported JD JSON and verify trace reasons
+
+Optional real-site lane:
+```bash
+E2E_LIVE_JD_URL="https://www.seek.com.au/jobs/software-developer" npm run test:e2e:live
+```
+
+This live lane runs `jd-fetch` against a real job page, imports the fetched JSON, then verifies resume generation output.
+
 ## GitHub Pages Deployment
 
 Deployment workflow: `.github/workflows/deploy-gh-pages.yml`
