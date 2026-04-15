@@ -1,7 +1,7 @@
 # Resume Vault
 
-Local-first resume database with JD-driven resume generation.
-Designed for GitHub Pages deployment with optional local Playwright helper for job-description capture.
+Turn your career highlights into reusable entries and generate a tailored resume for each job you apply to.
+Bilingual (zh-TW / en-AU) local-first workflow with optional Playwright helper for job-description capture.
 
 ## Features
 
@@ -50,6 +50,7 @@ Storage behavior:
 npm run test
 npm run typecheck
 npm run build:web
+npm run test:e2e
 ```
 
 ## GitHub Pages Deployment
