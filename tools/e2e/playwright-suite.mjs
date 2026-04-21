@@ -148,7 +148,11 @@ const importJdJson = async (page, jdJsonPath) => {
   await page.getByRole("button", { name: /^(Import JD JSON|匯入職位描述 JSON|匯入 JD JSON)$/ }).click();
 };
 
-const runGenerateAndAssert = async (page, expectationLabel) => {
+const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
+  const obsidianButton = page.getByRole("button", { name: /^(Export Obsidian Markdown|匯出 Obsidian Markdown)$/ });
+  assert(await obsidianButton.count(), `${expectationLabel}: obsidian export button is missing.`);
+  assert(await obsidianButton.isDisabled(), `${expectationLabel}: obsidian export button should be disabled before generation.`);
+
   await page.getByRole("button", { name: /^(Generate|生成履歷)$/ }).click();
 
   const output = await page.locator("textarea[readonly][rows='14']").inputValue();
@@ -175,6 +179,22 @@ const runGenerateAndAssert = async (page, expectationLabel) => {
     trace.some((item) => Array.isArray(item.reasons) && item.reasons.some((reason) => String(reason).startsWith("overlap:"))),
     `${expectationLabel}: trace should contain overlap reason.`,
   );
+
+  const downloadPromise = page.waitForEvent("download");
+  await obsidianButton.click();
+  const download = await downloadPromise;
+  const fileName = download.suggestedFilename();
+  assert(fileName.startsWith("tailored-resume-obsidian-"), `${expectationLabel}: unexpected obsidian filename ${fileName}.`);
+  assert(fileName.endsWith(".md"), `${expectationLabel}: obsidian export should be .md.`);
+  const savedPath = join(tempDir, fileName);
+  await download.saveAs(savedPath);
+  const downloaded = await readFile(savedPath, "utf-8");
+  assert(downloaded.startsWith("---\n"), `${expectationLabel}: obsidian export missing frontmatter delimiter.`);
+  for (const key of ["title:", "created:", "locale:", "template_id:", "template_name:", "jd_source_type:", "jd_source_url:", "tags:"]) {
+    assert(downloaded.includes(key), `${expectationLabel}: missing frontmatter key ${key}`);
+  }
+  assert(!downloaded.includes("resume/tailored"), `${expectationLabel}: tags should be simple non-namespaced values.`);
+  assert(downloaded.includes(`\n${output}`), `${expectationLabel}: exported body should preserve generated markdown.`);
 };
 
 const maybeRunLiveJdFetchScenario = async (page, fixtures) => {
@@ -189,7 +209,7 @@ const maybeRunLiveJdFetchScenario = async (page, fixtures) => {
   );
 
   await importJdJson(page, fixtures.liveJdJsonPath);
-  await runGenerateAndAssert(page, "live jd-fetch json");
+  await runGenerateAndAssert(page, "live jd-fetch json", fixtures.tempDir);
 };
 
 const run = async () => {
@@ -204,13 +224,13 @@ const run = async () => {
 
     await importDbState(page, fixtures.dbStatePath);
     await saveJdFromText(page, fixtures.jdText.trim());
-    await runGenerateAndAssert(page, "sample word bank + pasted jd");
+    await runGenerateAndAssert(page, "sample word bank + pasted jd", fixtures.tempDir);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await switchToEnglish(page);
     await importDbState(page, fixtures.dbStatePath);
     await importJdJson(page, fixtures.jdJsonPath);
-    await runGenerateAndAssert(page, "sample word bank + imported jd json");
+    await runGenerateAndAssert(page, "sample word bank + imported jd json", fixtures.tempDir);
 
     await maybeRunLiveJdFetchScenario(page, fixtures);
 

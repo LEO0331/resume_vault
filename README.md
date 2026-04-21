@@ -14,6 +14,7 @@ Bilingual (zh-TW / en-AU) local-first workflow with optional Playwright helper f
 - JD input via paste or JSON import
 - Optional JD URL capture (`104`, `LinkedIn`, `Seek`) using local `jd-fetch`
 - Tailored resume generation (`markdown + trace json`)
+- Optional Obsidian markdown export (YAML frontmatter + resume body)
 - Custom resume import (`.md` / `.txt`) and state import/export (`.json`)
 - One-click DB restore via `Import DB JSON`
 

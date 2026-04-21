@@ -353,11 +353,7 @@ button:disabled {
 .actions {
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
-}
-
-.actions.two-actions {
-  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
 }
 
 ul {
@@ -531,7 +527,6 @@ hr {
   .grid.two,
   .grid.three,
   .actions,
-  .actions.two-actions,
   .advanced-grid {
     grid-template-columns: 1fr;
   }

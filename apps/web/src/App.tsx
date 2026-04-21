@@ -1,5 +1,6 @@
 import { generateResume, type JobDescription, type ResumeEntry, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { buildObsidianFilename, buildObsidianMarkdown } from "./obsidian";
 
 type StoredState = {
   entries: ResumeEntry[];
@@ -77,6 +78,7 @@ type UiText = {
   panelGenerate: string;
   btnGenerate: string;
   btnExportMarkdown: string;
+  btnExportObsidianMd: string;
   btnExportDbJson: string;
   btnImportDbJson: string;
   outputMarkdown: string;
@@ -192,6 +194,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     panelGenerate: "5) 生成履歷",
     btnGenerate: "生成履歷",
     btnExportMarkdown: "匯出 Markdown",
+    btnExportObsidianMd: "匯出 Obsidian Markdown",
     btnExportDbJson: "匯出 DB JSON",
     btnImportDbJson: "匯入 DB JSON",
     outputMarkdown: "輸出 Markdown",
@@ -297,6 +300,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     panelGenerate: "5) Generate Resume",
     btnGenerate: "Generate",
     btnExportMarkdown: "Export Markdown",
+    btnExportObsidianMd: "Export Obsidian Markdown",
     btnExportDbJson: "Export DB JSON",
     btnImportDbJson: "Import DB JSON",
     outputMarkdown: "Output Markdown",
@@ -843,22 +847,38 @@ const App = () => {
 
   const exportState = () => {
     const blob = new Blob([JSON.stringify({ entries, templates, jobs }, null, 2)], { type: "application/json" });
+    downloadBlob(blob, "resume-vault-data.json");
+  };
+
+  const downloadBlob = (blob: Blob, filename: string): void => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "resume-vault-data.json";
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
   };
 
   const exportMarkdown = () => {
     const blob = new Blob([generatedMd], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "tailored-resume.md";
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, "tailored-resume.md");
+  };
+
+  const exportObsidianMarkdown = () => {
+    if (!generatedMd) {
+      return;
+    }
+
+    const now = new Date();
+    const output = buildObsidianMarkdown({
+      body: generatedMd,
+      locale: activeLocale,
+      template: selectedTemplate,
+      job: selectedJob,
+      now,
+    });
+    const blob = new Blob([output], { type: "text/markdown" });
+    downloadBlob(blob, buildObsidianFilename(now));
   };
 
   const importStateFromFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1090,6 +1110,7 @@ const App = () => {
           <div className="actions">
             <button className="btn-primary" onClick={runGenerate}>{text.btnGenerate}</button>
             <button className="btn-secondary" onClick={exportMarkdown} disabled={!generatedMd}>{text.btnExportMarkdown}</button>
+            <button className="btn-secondary" onClick={exportObsidianMarkdown} disabled={!generatedMd}>{text.btnExportObsidianMd}</button>
             <button className="btn-secondary" onClick={exportState}>{text.btnExportDbJson}</button>
             <button className="btn-secondary" onClick={() => dbImportInputRef.current?.click()}>{text.btnImportDbJson}</button>
           </div>
