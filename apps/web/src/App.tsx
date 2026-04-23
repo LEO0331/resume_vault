@@ -53,6 +53,12 @@ type UiText = {
   labelTags: string;
   labelLocale: string;
   labelWeight: string;
+  labelTemplateSelect: string;
+  labelJdSelect: string;
+  labelJdJson: string;
+  labelCustomResumeLocale: string;
+  labelImportResumeFile: string;
+  labelImportDbFile: string;
   btnAddEntry: string;
   btnDelete: string;
   noTags: string;
@@ -169,6 +175,12 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     labelTags: "標籤",
     labelLocale: "語系",
     labelWeight: "權重",
+    labelTemplateSelect: "選擇模板",
+    labelJdSelect: "選擇職位描述",
+    labelJdJson: "職位描述 JSON",
+    labelCustomResumeLocale: "匯入履歷語系",
+    labelImportResumeFile: "匯入履歷檔案",
+    labelImportDbFile: "匯入資料庫 JSON 檔案",
     btnAddEntry: "新增詞條",
     btnDelete: "刪除",
     noTags: "無標籤",
@@ -275,6 +287,12 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     labelTags: "Tags",
     labelLocale: "Locale",
     labelWeight: "Weight",
+    labelTemplateSelect: "Select template",
+    labelJdSelect: "Select job description",
+    labelJdJson: "Job description JSON",
+    labelCustomResumeLocale: "Imported resume locale",
+    labelImportResumeFile: "Import resume file",
+    labelImportDbFile: "Import database JSON file",
     btnAddEntry: "Add Entry",
     btnDelete: "Delete",
     noTags: "no tags",
@@ -910,10 +928,20 @@ const App = () => {
         <p className="hero-copy">{text.heroCopy}</p>
         <div className="top-controls">
           <div className="locale-switch" role="tablist" aria-label="Language mode">
-            <button className={activeLocale === "zh-TW" ? "chip active" : "chip"} onClick={() => setActiveLocale("zh-TW")} role="tab">
+            <button
+              className={activeLocale === "zh-TW" ? "chip active" : "chip"}
+              onClick={() => setActiveLocale("zh-TW")}
+              role="tab"
+              aria-selected={activeLocale === "zh-TW"}
+            >
               {text.langZh}
             </button>
-            <button className={activeLocale === "en-AU" ? "chip active" : "chip"} onClick={() => setActiveLocale("en-AU")} role="tab">
+            <button
+              className={activeLocale === "en-AU" ? "chip active" : "chip"}
+              onClick={() => setActiveLocale("en-AU")}
+              role="tab"
+              aria-selected={activeLocale === "en-AU"}
+            >
               {text.langEn}
             </button>
           </div>
@@ -925,6 +953,7 @@ const App = () => {
                 setShowAdvanced(false);
               }}
               role="tab"
+              aria-selected={simpleMode}
             >
               {text.modeSimple}
             </button>
@@ -935,6 +964,7 @@ const App = () => {
                 setShowAdvanced(true);
               }}
               role="tab"
+              aria-selected={!simpleMode}
             >
               {text.modeFull}
             </button>
@@ -980,7 +1010,11 @@ const App = () => {
         <span><strong>{text.stickyEntries}:</strong> {localeEntries.length}</span>
       </section>
 
-      {importMessage ? <p className={`import-status ${importTone === "error" ? "is-error" : "is-success"}`}>{importMessage}</p> : null}
+      {importMessage ? (
+        <p className={`import-status ${importTone === "error" ? "is-error" : "is-success"}`} role="status" aria-live="polite">
+          {importMessage}
+        </p>
+      ) : null}
 
       {showHelp ? (
         <section className="panel panel-wide help-panel">
@@ -1069,13 +1103,14 @@ const App = () => {
           <button className="btn-primary" onClick={addJobFromPaste}>{text.btnSaveJd}</button>
           <p>{text.importFromJsonLabel}</p>
           <textarea
+            aria-label={text.labelJdJson}
             value={jdJson}
             onChange={(event) => setJdJson(event.target.value)}
             placeholder={text.jdJsonPlaceholder}
             rows={4}
           />
           <button className="btn-secondary" onClick={importJobJson}>{text.btnImportJdJson}</button>
-          <select value={selectedJobId} onChange={(event) => setSelectedJobId(event.target.value)}>
+          <select aria-label={text.labelJdSelect} value={selectedJobId} onChange={(event) => setSelectedJobId(event.target.value)}>
             <option value="">{text.selectJdPlaceholder}</option>
             {localeJobs.map((job) => (
               <option key={job.id} value={job.id}>
@@ -1093,7 +1128,7 @@ const App = () => {
 
         <section className="panel panel-wide" id="generate-section">
           <h2>{text.panelGenerate}</h2>
-          <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)}>
+          <select aria-label={text.labelTemplateSelect} value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)}>
             <option value="">{text.emptyTemplateTitle}</option>
             {localeTemplates.map((template) => (
               <option key={template.id} value={template.id}>
@@ -1119,6 +1154,7 @@ const App = () => {
             type="file"
             accept=".json,application/json"
             className="sr-only"
+            aria-label={text.labelImportDbFile}
             onChange={(event) => {
               void importStateFromFile(event);
             }}
@@ -1162,13 +1198,18 @@ const App = () => {
                 <h2>{text.panelImport}</h2>
                 <p>{text.importResumeIntro}</p>
                 <p>{text.importResumeNote}</p>
-                <select value={customResumeLocale} onChange={(event) => setCustomResumeLocale(event.target.value as ResumeEntry["locale"])}>
+                <select
+                  aria-label={text.labelCustomResumeLocale}
+                  value={customResumeLocale}
+                  onChange={(event) => setCustomResumeLocale(event.target.value as ResumeEntry["locale"])}
+                >
                   <option value="zh-TW">zh-TW</option>
                   <option value="en-AU">en-AU</option>
                 </select>
                 <input
                   type="file"
                   accept=".md,.txt,text/markdown,text/plain"
+                  aria-label={text.labelImportResumeFile}
                   onChange={(event) => {
                     void readUploadedText(event, setCustomResumeText, ALLOWED_RESUME_EXTENSIONS);
                   }}
