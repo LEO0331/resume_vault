@@ -1160,9 +1160,9 @@ const App = () => {
             }}
           />
           <h3>{text.outputMarkdown}</h3>
-          <textarea value={generatedMd} readOnly rows={14} />
+          <textarea aria-label={text.outputMarkdown} value={generatedMd} readOnly rows={14} />
           <h3>{text.outputTrace}</h3>
-          <textarea value={traceJson} readOnly rows={10} />
+          <textarea aria-label={text.outputTrace} value={traceJson} readOnly rows={10} />
         </section>
 
         <section className="panel panel-wide advanced-panel" id="advanced-section">
