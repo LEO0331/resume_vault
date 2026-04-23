@@ -54,6 +54,13 @@ npm run build:web
 npm run test:e2e
 ```
 
+## Lighthouse CI Dashboard (Temporary URL)
+
+- Workflow: `.github/workflows/lighthouse-ci.yml`
+- Triggers: pull request, push to `main`, or manual dispatch
+- The workflow publishes temporary public Lighthouse report links in the run summary (`Lighthouse Temporary Public Report URLs`).
+- Target thresholds are configured in `lighthouserc.json` (set to warn at 90+ for Performance, Accessibility, Best Practices, and SEO).
+
 Playwright E2E coverage (`npm run test:e2e`) includes:
 - Import sample word bank (DB JSON) from `docs/samples`
 - Run generation from pasted job description text
