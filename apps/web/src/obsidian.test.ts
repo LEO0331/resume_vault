@@ -9,8 +9,8 @@ describe("obsidian export helpers", () => {
       body,
       locale: "en-AU",
       template: {
-        id: "starter-reverse-chronological",
-        name: "Reverse Chronological (ATS-friendly)",
+        id: "starter-ats-au-standard-en",
+        name: "AU ATS Standard (Chronological)",
         locale: "en-AU",
         sections: [],
       },
@@ -28,11 +28,11 @@ describe("obsidian export helpers", () => {
     expect(output).toContain('title: "Tailored Resume - 2026-04-21"');
     expect(output).toContain('created: "2026-04-21T09:07:00.000Z"');
     expect(output).toContain('locale: "en-AU"');
-    expect(output).toContain('template_id: "starter-reverse-chronological"');
-    expect(output).toContain('template_name: "Reverse Chronological (ATS-friendly)"');
+    expect(output).toContain('template_id: "starter-ats-au-standard-en"');
+    expect(output).toContain('template_name: "AU ATS Standard (Chronological)"');
     expect(output).toContain('jd_source_type: "url"');
     expect(output).toContain('jd_source_url: "https://www.seek.com.au/job/software-engineer"');
-    expect(output).toContain('tags: ["resume", "tailored", "en-au", "template-reverse-chronological-ats-friendly"]');
+    expect(output).toContain('tags: ["resume", "tailored", "en-au", "template-au-ats-standard-chronological"]');
     expect(output.endsWith(body)).toBe(true);
   });
 

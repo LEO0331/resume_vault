@@ -9,8 +9,8 @@ Bilingual (zh-TW / en-AU) local-first workflow with optional Playwright helper f
 - Simple mode (3-step flow) and Full mode (advanced controls)
 - Experience Bank-first UI with quick section jumps
 - Starter templates:
-  - Reverse Chronological (ATS-friendly)
-  - Hybrid / Combination (skills-focused)
+  - AU ATS Standard (Chronological)
+  - 澳洲 ATS 標準（時間倒序）
 - JD input via paste or JSON import
 - Optional JD URL capture (`104`, `LinkedIn`, `Seek`) using local `jd-fetch`
 - Tailored resume generation (`markdown + trace json`)

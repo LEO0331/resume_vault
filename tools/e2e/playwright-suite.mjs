@@ -91,7 +91,7 @@ const startPreview = async () => {
 const createFixtures = async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "resume-vault-e2e-"));
   const entries = JSON.parse(await readFile(join(ROOT_DIR, "docs/samples/entries-seed-au.json"), "utf-8"));
-  const template = JSON.parse(await readFile(join(ROOT_DIR, "docs/samples/template-starter-reverse-chronological.json"), "utf-8"));
+  const template = JSON.parse(await readFile(join(ROOT_DIR, "docs/samples/template-starter-ats-au-standard-en.json"), "utf-8"));
   const jdText = await readFile(join(ROOT_DIR, "docs/samples/jd-seek-senior-frontend.txt"), "utf-8");
 
   const dbStatePath = join(tempDir, "db-state.json");

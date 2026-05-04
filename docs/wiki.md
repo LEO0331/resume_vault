@@ -20,8 +20,8 @@ GitHub Pages 只能跑前端 JS，不能在站上直接跑 Playwright。
 2. 本機輔助流程：用 `tools/jd-fetch`（Playwright）抓取 104/LinkedIn/Seek，再匯入網站
 
 ## 4. 起手模板（內建 2 種）
-1. Reverse Chronological (ATS-friendly)
-2. Hybrid / Combination (Skills + Impact)
+1. 澳洲 ATS 標準（時間倒序）
+2. AU ATS Standard (Chronological)
 
 兩者會在首次啟動和資料匯入後自動確保存在。
 

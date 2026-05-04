@@ -1,6 +1,7 @@
 import { generateResume, type JobDescription, type ResumeEntry, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { buildObsidianFilename, buildObsidianMarkdown } from "./obsidian";
+import { ensureStarterTemplates, getDefaultTemplateId, type AppLocale } from "./template-presets";
 
 type StoredState = {
   entries: ResumeEntry[];
@@ -8,7 +9,6 @@ type StoredState = {
   jobs: JobDescription[];
 };
 
-type AppLocale = ResumeEntry["locale"];
 type StatusTone = "success" | "error";
 
 type UiText = {
@@ -185,7 +185,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     btnDelete: "刪除",
     noTags: "無標籤",
     panelTemplates: "2) 模板庫",
-    templatesIntro: "內建起手模板：Reverse Chronological + Hybrid / Combination。",
+    templatesIntro: "內建模板：澳洲 ATS 標準（時間倒序）＋ AU ATS Standard（Chronological）。",
     btnEnsureStarterTemplates: "補齊內建模板",
     placeholderTemplateName: "模板名稱",
     placeholderTemplateSections: "summary|2|summary",
@@ -213,7 +213,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     outputTrace: "輸出 Trace JSON",
     storageNoticePersist: "同一台電腦、同一個瀏覽器、同一個網域路徑下，重開頁面資料會保留。",
     storageNoticeLimit: "清瀏覽器資料、換瀏覽器或換裝置後，不會自動帶入原資料。",
-    msgStarterTemplatesEnsured: "已補齊內建模板：Reverse Chronological + Hybrid。",
+    msgStarterTemplatesEnsured: "已補齊內建模板：澳洲 ATS 標準（時間倒序）＋ AU ATS Standard（Chronological）。",
     msgJdImported: "職位描述 JSON 已匯入。",
     msgInvalidJdJson: "職位描述 JSON 格式錯誤。",
     msgNoParsableResume: "找不到可解析的履歷內容。",
@@ -297,7 +297,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     btnDelete: "Delete",
     noTags: "no tags",
     panelTemplates: "2) Template Bank",
-    templatesIntro: "Starter templates included: Reverse Chronological + Hybrid / Combination.",
+    templatesIntro: "Starter templates included: AU ATS Standard (Chronological) + 澳洲 ATS 標準（時間倒序）.",
     btnEnsureStarterTemplates: "Ensure Starter Templates",
     placeholderTemplateName: "Template name",
     placeholderTemplateSections: "summary|2|summary",
@@ -325,7 +325,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     outputTrace: "Trace JSON",
     storageNoticePersist: "On the same computer, browser, and site path, your data persists after reopening.",
     storageNoticeLimit: "Data does not carry over automatically after clearing browser data, switching browser, or switching device.",
-    msgStarterTemplatesEnsured: "Starter templates ensured: Reverse Chronological + Hybrid.",
+    msgStarterTemplatesEnsured: "Starter templates ensured: AU ATS Standard (Chronological) + 澳洲 ATS 標準（時間倒序）.",
     msgJdImported: "JD JSON imported.",
     msgInvalidJdJson: "Invalid JD JSON format.",
     msgNoParsableResume: "No parsable content found in imported resume.",
@@ -351,44 +351,6 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     filterAchievement: "Achievements",
     msgTemplateCreated: "Created a custom template from imported resume structure.",
   },
-};
-
-const starterTemplates: ResumeTemplate[] = [
-  {
-    id: "starter-reverse-chronological",
-    name: "Reverse Chronological (ATS-friendly)",
-    locale: "en-AU",
-    sections: [
-      { name: "summary", maxItems: 2, preferredTags: ["summary", "profile"] },
-      { name: "experience", maxItems: 5, preferredTags: ["experience", "work"] },
-      { name: "project", maxItems: 2, preferredTags: ["project", "delivery"] },
-      { name: "skill", maxItems: 8, preferredTags: ["skill", "tools", "tech"] },
-      { name: "achievement", maxItems: 3, preferredTags: ["achievement", "impact"] },
-    ],
-  },
-  {
-    id: "starter-hybrid-combination",
-    name: "Hybrid / Combination (Skills + Impact)",
-    locale: "zh-TW",
-    sections: [
-      { name: "summary", maxItems: 2, preferredTags: ["summary", "profile"] },
-      { name: "skill", maxItems: 10, preferredTags: ["skill", "strength", "domain"] },
-      { name: "project", maxItems: 4, preferredTags: ["project", "portfolio"] },
-      { name: "experience", maxItems: 4, preferredTags: ["experience", "work"] },
-      { name: "achievement", maxItems: 3, preferredTags: ["achievement", "award", "impact"] },
-    ],
-  },
-];
-
-const ensureStarterTemplates = (templates: ResumeTemplate[]): ResumeTemplate[] => {
-  const byId = new Map(templates.map((template) => [template.id, template]));
-  for (const starter of starterTemplates) {
-    if (!byId.has(starter.id)) {
-      byId.set(starter.id, starter);
-    }
-  }
-
-  return Array.from(byId.values());
 };
 
 const emptyState = (): StoredState => ({
@@ -594,7 +556,7 @@ const App = () => {
   const [templates, setTemplates] = useState<ResumeTemplate[]>(initialState.templates);
   const [jobs, setJobs] = useState<JobDescription[]>(initialState.jobs);
   const [activeLocale, setActiveLocale] = useState<AppLocale>("zh-TW");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialState.templates[0]?.id ?? starterTemplates[0].id);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(getDefaultTemplateId("zh-TW", initialState.templates));
   const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [showHelp, setShowHelp] = useState(false);
   const [simpleMode, setSimpleMode] = useState(true);
@@ -662,14 +624,13 @@ const App = () => {
   }, [activeLocale]);
 
   useEffect(() => {
-    const fallbackTemplate = localeTemplates[0];
     if (!selectedTemplate || selectedTemplate.locale !== activeLocale) {
-      setSelectedTemplateId(fallbackTemplate?.id ?? "");
+      setSelectedTemplateId(getDefaultTemplateId(activeLocale, templates));
     }
     if (selectedJobId && !localeJobs.some((job) => job.id === selectedJobId)) {
       setSelectedJobId(localeJobs[0]?.id ?? "");
     }
-  }, [activeLocale, localeTemplates, localeJobs, selectedTemplate, selectedJobId]);
+  }, [activeLocale, localeJobs, selectedTemplate, selectedJobId, templates]);
 
   useEffect(() => {
     if (!importMessage) {
@@ -910,7 +871,7 @@ const App = () => {
       const parsed = parseJsonSafely<Partial<StoredState>>(raw);
       const restored = normalizeState(parsed);
       writeState(restored);
-      setSelectedTemplateId(restored.templates[0]?.id ?? "");
+      setSelectedTemplateId(getDefaultTemplateId(activeLocale, restored.templates));
       setSelectedJobId(restored.jobs[0]?.id ?? "");
       setStatus(text.msgDbImported, "success");
     } catch {

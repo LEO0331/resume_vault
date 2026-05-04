@@ -7,7 +7,7 @@ Track reproducible sample generation results and where the matching word bank ca
 - Date:
 - JD source: (104 / LinkedIn / Seek / paste)
 - JD URL or reference:
-- Template used: (`starter-reverse-chronological` or `starter-hybrid-combination` or custom)
+- Template used: (`starter-ats-au-standard-en` or `starter-ats-au-standard-zh` or custom)
 - Input entries count:
 - Output file: (`tailored-resume.md`)
 - Trace file: (`trace.json`)
@@ -17,7 +17,7 @@ Track reproducible sample generation results and where the matching word bank ca
 - Date: 2026-04-14
 - JD source: Seek sample JD text
 - JD URL or reference: `docs/samples/jd-seek-senior-frontend.txt`
-- Template used: `starter-reverse-chronological`
+- Template used: `starter-ats-au-standard-en`
 - Input entries count: 12 (`docs/samples/entries-seed-au.json`)
 - Output file: `docs/samples/generated-seek-resume-v1.md`
 - Trace file: `docs/samples/generated-seek-trace-v1.json`
@@ -34,7 +34,7 @@ Track reproducible sample generation results and where the matching word bank ca
 ## 4. Sample Result B (Planned Next)
 - Date: TBD
 - JD source: 104 (sample)
-- Template used: `starter-hybrid-combination`
+- Template used: `starter-ats-au-standard-zh`
 - Input entries count: TBD
 - Output quality notes: pending run
 - Action taken: pending run
@@ -53,7 +53,7 @@ Record every source used to build/expand keyword matching vocabulary.
 ### Word Bank Used in Sample A (v1)
 - Base entry tags/content: `docs/samples/entries-seed-au.json`
 - JD keyword source: `docs/samples/jd-seek-senior-frontend.txt`
-- Template section preference tags: `docs/samples/template-starter-reverse-chronological.json`
+- Template section preference tags: `docs/samples/template-starter-ats-au-standard-en.json`
 
 ## 6. Regression Checklist
 For each release candidate:

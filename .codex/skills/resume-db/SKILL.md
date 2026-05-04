@@ -11,15 +11,15 @@ description: Generate tailored resume from local resume database and job descrip
 - User wants to import an existing custom resume as reusable entries.
 
 ## Starter templates
-- `starter-reverse-chronological` (ATS-friendly)
-- `starter-hybrid-combination` (skills-focused)
+- `starter-ats-au-standard-en` (AU ATS Standard, chronological)
+- `starter-ats-au-standard-zh` (澳洲 ATS 標準，時間倒序)
 
 ## Steps
 1. Validate input:
 - If URL is provided, run `npm run jd:fetch -- --url <url>`.
 - If fetch fails or requires auth, ask for pasted JD text.
 2. Optional: import custom resume markdown/text into entries.
-3. Ensure starter templates exist (Reverse Chronological + Hybrid).
+3. Ensure starter templates exist (AU ATS Standard EN + AU ATS Standard ZH).
 4. Run generation pipeline with selected template.
 5. Return artifacts:
 - tailored resume markdown

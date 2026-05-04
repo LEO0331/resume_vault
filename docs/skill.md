@@ -8,8 +8,8 @@
 4. 匯出 markdown + trace
 
 ## Built-in Templates
-- `starter-reverse-chronological`
-- `starter-hybrid-combination`
+- `starter-ats-au-standard-en`
+- `starter-ats-au-standard-zh`
 
 ## Inputs
 - `jd_text` 或 `jd_url`
