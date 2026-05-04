@@ -36,9 +36,27 @@ export interface MatchTraceItem {
   entryId: string;
   score: number;
   reasons: string[];
+  matchedTokens?: string[];
+  priorityMatchedTokens?: string[];
+  missingPriorityTokens?: string[];
+}
+
+export type MatchDecision = "apply" | "apply_with_gaps" | "stretch";
+
+export interface MatchGapItem {
+  token: string;
+  priority: "high" | "medium";
+}
+
+export interface MatchReport {
+  coverageScore: number;
+  decision: MatchDecision;
+  strengths: string[];
+  gaps: MatchGapItem[];
 }
 
 export interface GeneratedResume {
   outputMd: string;
   trace: MatchTraceItem[];
+  matchReport?: MatchReport;
 }

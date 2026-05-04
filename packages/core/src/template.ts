@@ -1,4 +1,4 @@
-import { scoreEntries, selectEntriesForTemplate } from "./match";
+import { buildMatchReport, scoreEntries, selectEntriesForTemplate } from "./match";
 import type { GeneratedResume, JobDescription, ResumeEntry, ResumeTemplate } from "./types";
 
 const byCategory = (entries: ResumeEntry[]): Map<string, ResumeEntry[]> => {
@@ -29,6 +29,7 @@ export const generateResume = (
   const trace = scoreEntries(jd.rawText, entries);
   const selected = selectEntriesForTemplate(trace, entries, template);
   const grouped = byCategory(selected);
+  const selectedIds = new Set(selected.map((entry) => entry.id));
 
   const sections = [
     renderSection("Summary", (grouped.get("summary") ?? []).map((entry) => `${entry.title}: ${entry.content}`)),
@@ -42,6 +43,7 @@ export const generateResume = (
 
   return {
     outputMd,
-    trace: trace.filter((item) => selected.some((entry) => entry.id === item.entryId)),
+    trace: trace.filter((item) => selectedIds.has(item.entryId)),
+    matchReport: buildMatchReport(jd.rawText, selected),
   };
 };

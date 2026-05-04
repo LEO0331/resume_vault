@@ -20,6 +20,10 @@ const assert = (condition, message) => {
   }
 };
 
+const hasReasonPrefix = (traceItem, prefixes) =>
+  Array.isArray(traceItem?.reasons)
+  && traceItem.reasons.some((reason) => prefixes.some((prefix) => String(reason).startsWith(prefix)));
+
 const runCommand = (cmd, args, cwd) =>
   new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
@@ -176,8 +180,16 @@ const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
   const trace = JSON.parse(traceRaw);
   assert(Array.isArray(trace) && trace.length > 0, `${expectationLabel}: trace should not be empty.`);
   assert(
-    trace.some((item) => Array.isArray(item.reasons) && item.reasons.some((reason) => String(reason).startsWith("overlap:"))),
-    `${expectationLabel}: trace should contain overlap reason.`,
+    trace.some((item) => hasReasonPrefix(item, ["overlap:", "general_overlap:", "priority_overlap:"])),
+    `${expectationLabel}: trace should contain overlap reasons.`,
+  );
+  assert(
+    trace.some((item) => hasReasonPrefix(item, ["overlap:"])),
+    `${expectationLabel}: trace should preserve legacy overlap reason compatibility.`,
+  );
+  assert(
+    trace.some((item) => hasReasonPrefix(item, ["general_overlap:", "priority_overlap:"])),
+    `${expectationLabel}: trace should contain upgraded overlap reasons.`,
   );
 
   const downloadPromise = page.waitForEvent("download");

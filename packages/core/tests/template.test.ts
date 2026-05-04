@@ -51,5 +51,10 @@ describe("generateResume", () => {
     expect(result.outputMd).toContain("## Experience");
     expect(result.trace.length).toBeGreaterThan(0);
     expect(result.trace.every((item) => item.entryId === "s1" || item.entryId === "x1")).toBe(true);
+    expect(result.matchReport).toBeDefined();
+    expect(result.matchReport?.coverageScore).toBeGreaterThanOrEqual(0);
+    expect(result.matchReport?.coverageScore).toBeLessThanOrEqual(100);
+    expect(result.matchReport?.strengths.length).toBeGreaterThanOrEqual(0);
+    expect(result.matchReport?.gaps.every((gap) => gap.priority === "high" || gap.priority === "medium")).toBe(true);
   });
 });
