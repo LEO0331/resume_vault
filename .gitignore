@@ -5,3 +5,4 @@ apps/web/dist
 tools/jd-fetch/dist
 coverage
 .omx
+docs/private-tests/

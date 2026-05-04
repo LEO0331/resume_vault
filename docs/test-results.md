@@ -2,6 +2,7 @@
 
 ## 1. Purpose
 Track reproducible sample generation results and where the matching word bank came from.
+Private/local ATS validation inputs should be kept in `docs/private-tests/` (gitignored).
 
 ## 2. Sample Test Case Template
 - Date:
