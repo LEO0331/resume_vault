@@ -7,7 +7,9 @@ import {
   isLikelyBotWall,
   extractSeekLocation,
   isSeekJobUrl,
+  parsePrivateProfileToEntries,
   parseSeekUrlList,
+  rankEntriesForJob,
 } from "../src/lib.mjs";
 
 describe("private ats lib", () => {
@@ -70,5 +72,49 @@ https://www.seek.com.au/job/2
   it("detects bot-wall responses", () => {
     expect(isLikelyBotWall({ title: "Just a moment...", text: "Help us keep SEEK secure, confirm you are human." })).toBe(true);
     expect(isLikelyBotWall({ title: "Junior Developer", text: "Responsibilities include building APIs." })).toBe(false);
+  });
+
+  it("parses profile lines without dropping normal sentence content", () => {
+    const entries = parsePrivateProfileToEntries(
+      `
+Working Experience
+Web Application, Volunteer, AUS
+Engineered a dynamic platform enabling volunteer organizations to promote initiatives and maintain engagement.
+Implemented secure user sign-up/login with protections against SQL Injection, XSS, and CSRF attacks.
+      `,
+      "en-AU",
+    );
+
+    const contents = entries.map((entry) => entry.content);
+    expect(contents.some((line) => line.includes("Engineered a dynamic platform"))).toBe(true);
+    expect(contents.some((line) => line.includes("Implemented secure user sign-up/login"))).toBe(true);
+  });
+
+  it("ranks entries by overlap then deterministic id tie-break", () => {
+    const entries = [
+      {
+        id: "entry-b",
+        title: "Backend work",
+        content: "Built secure APIs with Node and OAuth2.",
+        category: "experience",
+        locale: "en-AU",
+        tags: ["experience", "security"],
+        weight: 4,
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "entry-a",
+        title: "Backend work",
+        content: "Built secure APIs with Node and OAuth2.",
+        category: "experience",
+        locale: "en-AU",
+        tags: ["experience", "security"],
+        weight: 4,
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+
+    const ranking = rankEntriesForJob(entries, "Looking for secure Node APIs and OAuth2 experience.");
+    expect(ranking.map((row) => row.entry.id)).toEqual(["entry-a", "entry-b"]);
   });
 });

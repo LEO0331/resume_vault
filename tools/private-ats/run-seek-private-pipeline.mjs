@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -84,20 +84,26 @@ const renderPdf = async (markdownText, outputPath) => {
   }
 };
 
-const parseJson = (text) => JSON.parse(text);
 const isPrivateNetworkFalsePositive = (message) =>
   String(message || "").includes("Blocked localhost/private-network target");
+const parsePositiveInteger = (rawValue, fallback) => {
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+};
 
 const runJdFetch = async (url, jdOutPath, options = {}) => {
   const args = ["tools/jd-fetch/dist/index.js", "--url", url, "--out", jdOutPath];
   if (options.headed) {
     args.push("--headed");
   }
+  if (options.allowPrivateNetwork) {
+    args.push("--allow-private-network");
+  }
   try {
     await runCommand("node", args, ROOT_DIR);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (isPrivateNetworkFalsePositive(message) && isSeekJobUrl(url)) {
+    if (isPrivateNetworkFalsePositive(message) && isSeekJobUrl(url) && options.allowPrivateNetworkFallback) {
       await runCommand("node", [...args, "--allow-private-network"], ROOT_DIR);
       return;
     }
@@ -111,16 +117,27 @@ const normalizeSeekJobUrlForFetch = (rawUrl) => {
   return `https://www.seek.com.au/job/${jobId}`;
 };
 
+const clearPriorOutputFiles = async (outDir, baseName) => {
+  const files = [
+    `${baseName}-resume.md`,
+    `${baseName}-resume.pdf`,
+    `${baseName}-analysis.json`,
+  ];
+  await Promise.all(files.map((file) => rm(join(outDir, file), { force: true })));
+};
+
 const main = async () => {
   const inputPath = resolve(ROOT_DIR, readArg("--input") ?? DEFAULT_INPUT);
   const profilePath = resolve(ROOT_DIR, readArg("--profile") ?? DEFAULT_PROFILE);
   const contactPath = resolve(ROOT_DIR, readArg("--contact") ?? DEFAULT_CONTACT);
   const outDir = resolve(ROOT_DIR, readArg("--out-dir") ?? DEFAULT_OUT_DIR);
-  const maxJobs = Number(readArg("--max-jobs") ?? DEFAULT_MAX_JOBS);
-  const delayMs = Number(readArg("--delay-ms") ?? DEFAULT_DELAY_MS);
+  const maxJobs = parsePositiveInteger(readArg("--max-jobs") ?? DEFAULT_MAX_JOBS, DEFAULT_MAX_JOBS);
+  const delayMs = parsePositiveInteger(readArg("--delay-ms") ?? DEFAULT_DELAY_MS, DEFAULT_DELAY_MS);
   const dryRun = hasFlag("--dry-run");
   const skipPdf = hasFlag("--skip-pdf");
   const headed = hasFlag("--headed");
+  const allowPrivateNetwork = hasFlag("--allow-private-network");
+  const allowPrivateNetworkFallback = hasFlag("--allow-private-network-fallback");
 
   await mkdir(outDir, { recursive: true });
 
@@ -150,7 +167,7 @@ const main = async () => {
     return;
   }
 
-  const contact = parseJson(await readFile(contactPath, "utf-8"));
+  const contact = JSON.parse(await readFile(contactPath, "utf-8"));
   assertContact(contact);
 
   await runCommand("npm", ["--workspace", "tools/jd-fetch", "run", "build", "--silent"], ROOT_DIR);
@@ -164,10 +181,11 @@ const main = async () => {
     const fetchUrl = normalizeSeekJobUrlForFetch(url);
     const baseName = buildOutputBaseName(url, index + 1);
     const jdOutPath = join(outDir, `${baseName}-jd.json`);
+    await clearPriorOutputFiles(outDir, baseName);
 
     try {
-      await runJdFetch(fetchUrl, jdOutPath, { headed });
-      const jd = parseJson(await readFile(jdOutPath, "utf-8"));
+      await runJdFetch(fetchUrl, jdOutPath, { headed, allowPrivateNetwork, allowPrivateNetworkFallback });
+      const jd = JSON.parse(await readFile(jdOutPath, "utf-8"));
       const title = String(jd.title || "").trim();
       if (isLikelyBotWall({ title, text: jd.text })) {
         skipped.push({ url, reason: "bot-wall", title });

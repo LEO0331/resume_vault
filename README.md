@@ -106,6 +106,11 @@ If Seek presents a human-check page, run headed mode to complete verification in
 npm run private:seek:ats -- --headed
 ```
 
+If your environment falsely flags SEEK as private-network, opt in explicitly:
+```bash
+npm run private:seek:ats -- --allow-private-network-fallback
+```
+
 Output files are written to `docs/private-tests/`:
 - `seek-job-<id>-jd.json`
 - `seek-job-<id>-analysis.json`

@@ -1,5 +1,13 @@
 import { URL } from "node:url";
 
+/**
+ * @typedef {{
+ *   responsibilities: string[];
+ *   experienceRequired: string[];
+ *   qualifications: string[];
+ * }} GuideSections
+ */
+
 const LEVEL_KEYWORDS = [
   "junior",
   "graduate",
@@ -25,6 +33,13 @@ const parseBulletLines = (text) =>
     .filter((line) => /^[\-*•]/.test(line))
     .map((line) => line.replace(/^[\-*•]\s*/, "").trim())
     .filter(Boolean);
+
+const tokenizeAlphaNum = (text) =>
+  String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 3);
 
 export const isSeekJobUrl = (rawUrl) => {
   try {
@@ -53,12 +68,14 @@ export const classifyRoleLevelByTitle = (title) => {
   return LEVEL_KEYWORDS.some((keyword) => normalized.includes(keyword));
 };
 
+/** @returns {GuideSections} */
 export const extractGuideSections = (jdText) => {
   const lines = String(jdText || "")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
 
+  /** @type {GuideSections} */
   const sections = {
     responsibilities: [],
     experienceRequired: [],
@@ -149,8 +166,7 @@ export const parsePrivateProfileToEntries = (profileText, locale = "en-AU") => {
 
     const isHeading =
       /:$/.test(line) ||
-      /^(technical skills|education background|working experience|volunteer experience|projects|professional profile)$/i.test(line) ||
-      /^[A-Z][A-Za-z0-9\s&|,.'()/-]{3,}$/.test(line);
+      /^(technical skills|education background|working experience|volunteer experience|projects|professional profile)$/i.test(line);
 
     if (isHeading && !/^[\-*•]/.test(line)) {
       flushBucket();
@@ -201,18 +217,12 @@ export const buildTailoredMarkdown = ({ contact, templateName, jobUrl, jobTitle,
 };
 
 export const rankEntriesForJob = (entries, jdText) => {
-  const jdTokens = new Set(
-    String(jdText || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((token) => token.length >= 3),
-  );
+  const jdTokens = new Set(tokenizeAlphaNum(jdText));
 
   return [...entries]
     .map((entry) => {
       const source = `${entry.title} ${entry.content} ${(entry.tags || []).join(" ")}`.toLowerCase();
-      const tokens = source.replace(/[^a-z0-9\s]/g, " ").split(/\s+/);
+      const tokens = tokenizeAlphaNum(source);
       const overlap = tokens.reduce((sum, token) => sum + (jdTokens.has(token) ? 1 : 0), 0);
       const score = overlap * 3 + (entry.weight || 0);
       return { entry, score };
