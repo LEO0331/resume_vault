@@ -66,11 +66,6 @@ Playwright E2E coverage (`npm run test:e2e`) includes:
 - Run generation from pasted job description text
 - Run generation from imported JD JSON and verify trace reasons
 
-Optional real-site lane:
-```bash
-E2E_LIVE_JD_URL="https://www.seek.com.au/jobs/software-developer" npm run test:e2e:live
-```
-
 This live lane runs `jd-fetch` against a real job page, imports the fetched JSON, then verifies resume generation output.
 
 ## GitHub Pages Deployment
@@ -81,22 +76,42 @@ Deployment workflow: `.github/workflows/deploy-gh-pages.yml`
 - Build uses `VITE_BASE_PATH=/${repo-name}/`
 - Output is published from `apps/web/dist`
 
-## JD Fetch Helper (Local)
-
-```bash
-npm run jd:fetch -- --url "https://www.seek.com.au/job/..."
-```
-
-Optional flags:
-
-- `--out <file>` output JSON path (default `jd-capture.json`)
-- `--headed` run with visible browser
-- `--allow-private-network` override localhost/private-network block (disabled by default)
-
-If fetching fails (login wall/captcha/DOM change), paste JD text directly in the web UI.
-
 ## Sample Data and Outputs
 
 - Inputs: `docs/samples/`
 - Generated samples: `docs/samples/generated-*`
 - Result log and word bank source tracking: `docs/test-results.md`
+
+## Private ATS Pipeline (Seek, Local Only)
+
+Use this when you want private, submission-ready tailored resumes for Seek roles.
+
+1. Prepare private inputs:
+- `docs/private-tests/seek-job-urls.local.txt` (one Seek job URL per line, from your filtered search page)
+- `docs/private-tests/ats-screening-input.md` (your private resume/profile source)
+- `docs/private-tests/contact.local.json` (personal contact info)
+
+2. Run dry check:
+```bash
+npm run private:seek:ats -- --dry-run
+```
+
+3. Run generation:
+```bash
+npm run private:seek:ats
+```
+
+If Seek presents a human-check page, run headed mode to complete verification interactively:
+```bash
+npm run private:seek:ats -- --headed
+```
+
+Output files are written to `docs/private-tests/`:
+- `seek-job-<id>-jd.json`
+- `seek-job-<id>-analysis.json`
+- `seek-job-<id>-resume.md`
+- `seek-job-<id>-resume.pdf`
+- `seek-private-run-summary.json`
+
+Notes:
+- The pipeline only processes URLs you provide (no automated search-results crawling).
