@@ -201,7 +201,8 @@ export const selectEntriesForTemplate = (
           return true;
         }
 
-        return section.preferredTags.some((tag) => entry.tags.includes(tag));
+        const entryTags = new Set(entry.tags.map((tag) => tag.toLowerCase()));
+        return section.preferredTags.some((tag) => entryTags.has(tag.toLowerCase()));
       })
       .slice(0, section.maxItems);
 

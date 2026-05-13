@@ -155,6 +155,31 @@ describe("selectEntriesForTemplate", () => {
     expect(selected.some((entry) => entry.id === "e1")).toBe(true);
     expect(selected.some((entry) => entry.id === "e3")).toBe(true);
   });
+
+  it("matches preferred tags case-insensitively", () => {
+    const caseEntries: ResumeEntry[] = [
+      {
+        id: "case-1",
+        category: "skill",
+        title: "Skills",
+        content: "TypeScript",
+        locale: "en-AU",
+        tags: ["Skill", "TypeScript"],
+        weight: 1,
+        updatedAt: "2026-04-14T00:00:00.000Z",
+      },
+    ];
+    const caseTemplate: ResumeTemplate = {
+      id: "tpl-case",
+      name: "case",
+      locale: "en-AU",
+      sections: [{ name: "skill", maxItems: 1, preferredTags: ["skill"] }],
+    };
+
+    const trace = scoreEntries("TypeScript", caseEntries);
+    const selected = selectEntriesForTemplate(trace, caseEntries, caseTemplate);
+    expect(selected.map((entry) => entry.id)).toEqual(["case-1"]);
+  });
 });
 
 describe("buildMatchReport", () => {

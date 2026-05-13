@@ -57,4 +57,22 @@ describe("generateResume", () => {
     expect(result.matchReport?.strengths.length).toBeGreaterThanOrEqual(0);
     expect(result.matchReport?.gaps.every((gap) => gap.priority === "high" || gap.priority === "medium")).toBe(true);
   });
+
+  it("renders sections in template order instead of fixed category order", () => {
+    const reorderedTemplate: ResumeTemplate = {
+      ...template,
+      sections: [
+        { name: "experience", maxItems: 1, preferredTags: ["experience"] },
+        { name: "summary", maxItems: 1, preferredTags: ["summary"] },
+      ],
+    };
+
+    const result = generateResume(jd, entries, reorderedTemplate);
+    const experienceIndex = result.outputMd.indexOf("## Experience");
+    const summaryIndex = result.outputMd.indexOf("## Summary");
+
+    expect(experienceIndex).toBeGreaterThan(-1);
+    expect(summaryIndex).toBeGreaterThan(-1);
+    expect(experienceIndex).toBeLessThan(summaryIndex);
+  });
 });
