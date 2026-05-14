@@ -82,6 +82,63 @@ Deployment workflow: `.github/workflows/deploy-gh-pages.yml`
 - Generated samples: `docs/samples/generated-*`
 - Result log and word bank source tracking: `docs/test-results.md`
 
+## Markdown Resume Tailor Flow
+
+Use this local flow when you want a tailored `resume.md` that can be pasted into or rendered by [`junian/markdown-resume`](https://github.com/junian/markdown-resume).
+
+Source-of-truth rules:
+- Resume Vault remains the source of truth for resume/profile/template data
+- `markdown-resume` is only the rendering/export target
+- No backend is required
+
+Inputs:
+- `--jd`: job description file (`.md`, `.txt`, or existing JD `.json`)
+- `--resume`: current resume markdown
+- `--template`: stored resume template (`.md` or `.json`)
+- `--profile` (optional): extra profile/entry bank markdown
+- `--contact` (optional): contact JSON
+
+Example:
+```bash
+npm run ats:tailor -- \
+  --jd docs/job.md \
+  --resume docs/current-resume.md \
+  --template docs/store-template.md \
+  --out outputs/company-role
+```
+
+Optional prompt-based rewrite:
+```bash
+npm run ats:tailor -- \
+  --jd docs/job.md \
+  --resume docs/current-resume.md \
+  --template docs/store-template.md \
+  --model-cmd "my-local-llm-cli"
+```
+
+The model command must read the combined prompt from `stdin` and print the required `---RESUME_MD---` and `---ANALYSIS_JSON---` sections to `stdout`.
+If no `--model-cmd` is provided, the flow still generates a deterministic fallback `resume.md` from the existing selected entries.
+
+Outputs are written to `outputs/<safe-company-role-slug>/` by default, or to the path passed with `--out`:
+- `resume.md`
+- `analysis.json`
+- `jd.json` or `jd.md`
+- `tailor-prompt.system.txt`
+- `tailor-prompt.user.txt`
+- `tailor-prompt.full.txt`
+- `tailor-model-output.txt` when a model command is used
+
+Optional local PDF rendering:
+```bash
+npm run ats:tailor:pdf -- \
+  --jd docs/job.md \
+  --resume docs/current-resume.md \
+  --template docs/store-template.md \
+  --out outputs/company-role
+```
+
+This PDF render is a convenience preview only. If built-in rendering fails, `resume.md` and `analysis.json` are still written. For your final polished export, paste `resume.md` into `markdown-resume` and export the PDF there.
+
 ## Private ATS Pipeline (Seek, Local Only)
 
 Use this when you want private, submission-ready tailored resumes for Seek roles.

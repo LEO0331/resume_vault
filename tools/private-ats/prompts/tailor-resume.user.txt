@@ -1,0 +1,84 @@
+Tailor my resume for this job description.
+
+# Job Description
+
+{{JD_TEXT}}
+
+# Deterministic Match Report
+
+{{MATCH_REPORT_JSON}}
+
+# Selected Resume Entries
+
+{{SELECTED_ENTRIES}}
+
+# Current Resume Markdown
+
+{{CURRENT_RESUME_MD}}
+
+# Resume Template
+
+{{RESUME_TEMPLATE_MD}}
+
+# Contact Block
+
+{{CONTACT_BLOCK}}
+
+# Target Locale
+
+{{LOCALE}}
+
+# Required Output
+
+Return exactly two sections in this order:
+
+---RESUME_MD---
+
+A complete tailored resume in Markdown.
+
+Rules for the resume:
+- Start with H1 candidate name.
+- Include contact line below the name if available.
+- Use this heading structure unless the input data clearly requires a minor adjustment:
+
+# {{CANDIDATE_NAME}}
+
+{{CONTACT_LINE}}
+
+## Summary
+
+## Core Skills
+
+## Professional Experience
+
+## Selected Projects
+
+## Education
+
+## Certifications / Additional Information
+
+- Use compact bullet points.
+- Prefer action verbs.
+- Prioritize content most relevant to the JD.
+- Remove weak or irrelevant details.
+- Do not invent unsupported facts.
+- Do not include this instruction text.
+- Do not wrap the resume in triple backticks.
+- Do not include JSON inside the resume.
+
+---ANALYSIS_JSON---
+
+Return valid JSON only, matching this schema:
+
+{
+  "target_role": "",
+  "target_company": "",
+  "top_alignment_reasons": [],
+  "keywords_used": [],
+  "entries_used": [],
+  "entries_removed_or_deemphasized": [],
+  "unsupported_jd_requirements": [],
+  "truthfulness_warnings": [],
+  "pdf_rendering_notes": [],
+  "recommended_filename": ""
+}
