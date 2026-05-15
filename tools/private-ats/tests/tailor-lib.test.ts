@@ -150,6 +150,35 @@ describe("tailor lib", () => {
     expect(validation.errors).toEqual([]);
   });
 
+  it("accepts reordered contact formatting as long as all contact fragments are present", () => {
+    const validation = validateTailoredResume({
+      resumeMarkdown: `# Sheng Zhao
+
+bestaisecurity@gmail.com | 0472687078 | Adelaide SA
+
+## Summary
+
+- Summary
+
+## Core Skills
+
+- React
+
+## Professional Experience
+
+- Experience
+
+## Education
+
+- Degree
+`,
+      candidateName: "Sheng Zhao",
+      contactLine: ["Adelaide SA", "bestaisecurity@gmail.com", "0472687078"],
+    });
+
+    expect(validation.errors).toEqual([]);
+  });
+
   it("merges model analysis without dropping deterministic unsupported requirements", () => {
     const merged = mergeModelAnalysis(
       {

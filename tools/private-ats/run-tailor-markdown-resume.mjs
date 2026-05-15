@@ -3,6 +3,7 @@ import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright";
 import { markdownToHtml, parsePrivateProfileToEntries } from "./src/lib.mjs";
@@ -148,9 +149,7 @@ const loadJdInput = async (pathValue) => {
 };
 
 const ensureCoreRuntime = async () => {
-  const outDir = join(tmpdir(), "resume-vault-core-runtime");
-  await rm(outDir, { recursive: true, force: true });
-  await mkdir(outDir, { recursive: true });
+  const outDir = await mkdtemp(join(tmpdir(), "resume-vault-core-runtime-"));
   await runCommand(
     "node",
     [
@@ -176,7 +175,11 @@ const ensureCoreRuntime = async () => {
   );
 
   const require = createRequire(import.meta.url);
-  return require(join(outDir, "index.js"));
+  try {
+    return require(join(outDir, "index.js"));
+  } finally {
+    await rm(outDir, { recursive: true, force: true });
+  }
 };
 
 const runModelCommand = async (modelCmd, promptText) => {
@@ -234,6 +237,9 @@ const main = async () => {
   const slug = slugifySegment([jdMeta.company, jdMeta.role].filter(Boolean).join("-"));
   const outputDir = resolve(ROOT_DIR, requestedOutDir ?? join(DEFAULT_OUTPUT_ROOT, slug));
   const contactLine = header.contactLine || buildContactLine(contact);
+  const contactFragments = [contact?.location, contact?.email, contact?.phone, contact?.linkedin]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
   const pdfRenderingNotes = [
     "This repository remains the source of truth.",
     "Use resume.md as the markdown-resume input for final PDF rendering.",
@@ -316,7 +322,7 @@ const main = async () => {
   const validation = validateTailoredResume({
     resumeMarkdown: resumeMarkdownOutput,
     candidateName: header.candidateName || String(contact?.name || "").trim(),
-    contactLine,
+    contactFragments,
   });
   analysis.truthfulness_warnings = sanitizeStringArray([
     ...analysis.truthfulness_warnings,

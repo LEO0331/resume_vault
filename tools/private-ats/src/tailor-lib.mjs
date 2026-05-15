@@ -483,8 +483,13 @@ export const validateTailoredResume = ({ resumeMarkdown, candidateName, contactL
   if (candidateName && !new RegExp(`^#\\s+${candidateName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "m").test(text)) {
     errors.push("resume.md must start with the candidate name H1.");
   }
-  if (contactLine && !text.includes(contactLine)) {
-    errors.push("resume.md must include the contact line when contact data is available.");
+  const contactFragments = Array.isArray(contactLine)
+    ? contactLine
+    : typeof contactLine === "string" && contactLine.trim()
+      ? contactLine.split("|").map((part) => part.trim()).filter(Boolean)
+      : [];
+  if (contactFragments.length > 0 && !contactFragments.every((fragment) => text.includes(fragment))) {
+    errors.push("resume.md must include the available contact information.");
   }
 
   const requiredHeadings = [
