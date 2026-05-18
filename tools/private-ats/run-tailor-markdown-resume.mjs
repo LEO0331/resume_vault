@@ -87,6 +87,7 @@ const firstErrorLine = (error) =>
 const clearPriorOutputFiles = async (outputDir) => {
   const files = [
     "resume.md",
+    "cover-letter.md",
     "resume.pdf",
     "analysis.json",
     "jd.json",
@@ -234,6 +235,15 @@ const main = async () => {
   const selectedEntries = core.selectEntriesForTemplate(trace, allEntries, template);
   const matchReport = core.buildMatchReport(jdInput.jd.rawText, selectedEntries);
   const jdMeta = extractJdMetadata({ jdText: jdInput.jd.rawText, jdJson: jdInput.parsedJson });
+  const coverLetterOutput = core.generateCoverLetter({
+    job: jdInput.jd,
+    entries: allEntries,
+    template,
+    locale,
+    candidateName: header.candidateName || String(contact?.name || "").trim() || undefined,
+    companyName: jdMeta.company,
+    roleTitle: jdMeta.role,
+  });
   const slug = slugifySegment([jdMeta.company, jdMeta.role].filter(Boolean).join("-"));
   const outputDir = resolve(ROOT_DIR, requestedOutDir ?? join(DEFAULT_OUTPUT_ROOT, slug));
   const contactLine = header.contactLine || buildContactLine(contact);
@@ -334,6 +344,7 @@ const main = async () => {
   }
 
   await writeFile(join(outputDir, "resume.md"), `${resumeMarkdownOutput.trim()}\n`, "utf-8");
+  await writeFile(join(outputDir, "cover-letter.md"), `${coverLetterOutput.outputMd.trim()}\n`, "utf-8");
   await writeFile(join(outputDir, jdInput.artifactName), jdInput.artifactContent, "utf-8");
 
   if (renderPdfFlag) {

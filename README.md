@@ -85,6 +85,7 @@ Deployment workflow: `.github/workflows/deploy-gh-pages.yml`
 ## Markdown Resume Tailor Flow
 
 Use this local flow when you want a tailored `resume.md` that can be pasted into or rendered by [`junian/markdown-resume`](https://github.com/junian/markdown-resume).
+The same run now also creates a deterministic `cover-letter.md` from the same JD and selected entries.
 
 Source-of-truth rules:
 - Resume Vault remains the source of truth for resume/profile/template data
@@ -121,6 +122,7 @@ If no `--model-cmd` is provided, the flow still generates a deterministic fallba
 
 Outputs are written to `outputs/<safe-company-role-slug>/` by default, or to the path passed with `--out`:
 - `resume.md`
+- `cover-letter.md`
 - `analysis.json`
 - `jd.json` or `jd.md`
 - `tailor-prompt.system.txt`
@@ -138,6 +140,7 @@ npm run ats:tailor:pdf -- \
 ```
 
 This PDF render is a convenience preview only. If built-in rendering fails, `resume.md` and `analysis.json` are still written. For your final polished export, paste `resume.md` into `markdown-resume` and export the PDF there.
+`cover-letter.md` remains a separate Markdown output and is not bundled into the resume export.
 
 ## Private ATS Pipeline (Seek, Local Only)
 

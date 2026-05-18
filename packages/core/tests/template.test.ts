@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateResume } from "../src/template";
+import { generateCoverLetter, generateResume } from "../src/template";
 import type { JobDescription, ResumeEntry, ResumeTemplate } from "../src/types";
 
 const entries: ResumeEntry[] = [
@@ -74,5 +74,60 @@ describe("generateResume", () => {
     expect(experienceIndex).toBeGreaterThan(-1);
     expect(summaryIndex).toBeGreaterThan(-1);
     expect(experienceIndex).toBeLessThan(summaryIndex);
+  });
+});
+
+describe("generateCoverLetter", () => {
+  it("returns deterministic english cover letter content from selected entries", () => {
+    const result = generateCoverLetter({
+      job: jd,
+      entries,
+      template,
+      locale: "en-AU",
+      candidateName: "Candidate Name",
+      companyName: "Example Co",
+      roleTitle: "Frontend Engineer",
+      today: new Date("2026-05-18T00:00:00.000Z"),
+    });
+
+    expect(result.outputMd).toContain("18 May 2026");
+    expect(result.outputMd).toContain("Dear Hiring Manager,");
+    expect(result.outputMd).toContain("I am writing to apply for the Frontend Engineer role at Example Co.");
+    expect(result.outputMd).toContain("React");
+    expect(result.outputMd).toContain("Delivered API-backed features with measurable quality gains.");
+    expect(result.outputMd).not.toContain("kubernetes");
+    expect(result.outputMd).toContain("Kind regards,");
+    expect(result.outputMd).toContain("Candidate Name");
+    expect(result.trace.length).toBeGreaterThan(0);
+    expect(result.matchReport?.coverageScore).toBeGreaterThanOrEqual(0);
+  });
+
+  it("falls back to generic wording and zh-TW template when role or company is missing", () => {
+    const result = generateCoverLetter({
+      job: {
+        ...jd,
+        rawText: "需要 React 與 TypeScript 能力",
+      },
+      entries: [
+        {
+          ...entries[0],
+          locale: "zh-TW",
+          content: "熟悉 React 與 TypeScript 開發",
+        },
+      ],
+      template: {
+        ...template,
+        locale: "zh-TW",
+      },
+      locale: "zh-TW",
+      today: new Date("2026-05-18T00:00:00.000Z"),
+    });
+
+    expect(result.outputMd).toContain("2026年5月18日");
+    expect(result.outputMd).toContain("您好，招募主管：");
+    expect(result.outputMd).toContain("我想應徵這份職位。");
+    expect(result.outputMd).toContain("熟悉 React 與 TypeScript 開發");
+    expect(result.outputMd).toContain("此致");
+    expect(result.outputMd).not.toContain("Kind regards");
   });
 });

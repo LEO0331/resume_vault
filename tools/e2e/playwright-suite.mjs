@@ -154,8 +154,11 @@ const importJdJson = async (page, jdJsonPath) => {
 
 const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
   const obsidianButton = page.getByRole("button", { name: /^(Export Obsidian Markdown|匯出 Obsidian Markdown)$/ });
+  const coverLetterButton = page.getByRole("button", { name: /^(Export Cover Letter|匯出 Cover Letter)$/ });
   assert(await obsidianButton.count(), `${expectationLabel}: obsidian export button is missing.`);
+  assert(await coverLetterButton.count(), `${expectationLabel}: cover letter export button is missing.`);
   assert(await obsidianButton.isDisabled(), `${expectationLabel}: obsidian export button should be disabled before generation.`);
+  assert(await coverLetterButton.isDisabled(), `${expectationLabel}: cover letter export button should be disabled before generation.`);
 
   await page.getByRole("button", { name: /^(Generate|生成履歷)$/ }).click();
 
@@ -192,6 +195,17 @@ const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
     `${expectationLabel}: trace should contain upgraded overlap reasons.`,
   );
 
+  const coverLetter = await page.locator("textarea[readonly][rows='12']").inputValue();
+  assert(coverLetter.trim().length > 0, `${expectationLabel}: generated cover letter is empty.`);
+  assert(
+    coverLetter.includes("Dear Hiring Manager,") || coverLetter.includes("您好，招募主管："),
+    `${expectationLabel}: cover letter greeting is missing.`,
+  );
+  assert(
+    coverLetter.toLowerCase().includes("react") || coverLetter.toLowerCase().includes("typescript") || coverLetter.includes("平台"),
+    `${expectationLabel}: expected matched experience not reflected in cover letter.`,
+  );
+
   const downloadPromise = page.waitForEvent("download");
   await obsidianButton.click();
   const download = await downloadPromise;
@@ -207,6 +221,16 @@ const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
   }
   assert(!downloaded.includes("resume/tailored"), `${expectationLabel}: tags should be simple non-namespaced values.`);
   assert(downloaded.includes(`\n${output}`), `${expectationLabel}: exported body should preserve generated markdown.`);
+
+  const coverLetterDownloadPromise = page.waitForEvent("download");
+  await coverLetterButton.click();
+  const coverLetterDownload = await coverLetterDownloadPromise;
+  const coverLetterFileName = coverLetterDownload.suggestedFilename();
+  assert(coverLetterFileName === "tailored-cover-letter.md", `${expectationLabel}: unexpected cover letter filename ${coverLetterFileName}.`);
+  const coverLetterPath = join(tempDir, coverLetterFileName);
+  await coverLetterDownload.saveAs(coverLetterPath);
+  const coverLetterDownloaded = await readFile(coverLetterPath, "utf-8");
+  assert(coverLetterDownloaded === coverLetter, `${expectationLabel}: cover letter export should match generated output.`);
 };
 
 const maybeRunLiveJdFetchScenario = async (page, fixtures) => {

@@ -60,3 +60,9 @@ export interface GeneratedResume {
   trace: MatchTraceItem[];
   matchReport?: MatchReport;
 }
+
+export interface GeneratedCoverLetter {
+  outputMd: string;
+  trace: MatchTraceItem[];
+  matchReport?: MatchReport;
+}

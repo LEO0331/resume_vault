@@ -1,4 +1,4 @@
-import { generateResume, type JobDescription, type ResumeEntry, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
+import { generateCoverLetter, generateResume, type JobDescription, type ResumeEntry, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { buildObsidianFilename, buildObsidianMarkdown } from "./obsidian";
 import { ensureStarterTemplates, getDefaultTemplateId, type AppLocale } from "./template-presets";
@@ -85,9 +85,11 @@ type UiText = {
   btnGenerate: string;
   btnExportMarkdown: string;
   btnExportObsidianMd: string;
+  btnExportCoverLetter: string;
   btnExportDbJson: string;
   btnImportDbJson: string;
   outputMarkdown: string;
+  outputCoverLetter: string;
   outputTrace: string;
   storageNoticePersist: string;
   storageNoticeLimit: string;
@@ -207,9 +209,11 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     btnGenerate: "生成履歷",
     btnExportMarkdown: "匯出 Markdown",
     btnExportObsidianMd: "匯出 Obsidian Markdown",
+    btnExportCoverLetter: "匯出 Cover Letter",
     btnExportDbJson: "匯出 DB JSON",
     btnImportDbJson: "匯入 DB JSON",
     outputMarkdown: "輸出 Markdown",
+    outputCoverLetter: "輸出 Cover Letter",
     outputTrace: "輸出 Trace JSON",
     storageNoticePersist: "同一台電腦、同一個瀏覽器、同一個網域路徑下，重開頁面資料會保留。",
     storageNoticeLimit: "清瀏覽器資料、換瀏覽器或換裝置後，不會自動帶入原資料。",
@@ -319,9 +323,11 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     btnGenerate: "Generate",
     btnExportMarkdown: "Export Markdown",
     btnExportObsidianMd: "Export Obsidian Markdown",
+    btnExportCoverLetter: "Export Cover Letter",
     btnExportDbJson: "Export DB JSON",
     btnImportDbJson: "Import DB JSON",
     outputMarkdown: "Output Markdown",
+    outputCoverLetter: "Output Cover Letter",
     outputTrace: "Trace JSON",
     storageNoticePersist: "On the same computer, browser, and site path, your data persists after reopening.",
     storageNoticeLimit: "Data does not carry over automatically after clearing browser data, switching browser, or switching device.",
@@ -577,6 +583,7 @@ const App = () => {
   const [jdUrl, setJdUrl] = useState("");
   const [jdJson, setJdJson] = useState("");
   const [generatedMd, setGeneratedMd] = useState("");
+  const [generatedCoverLetterMd, setGeneratedCoverLetterMd] = useState("");
   const [traceJson, setTraceJson] = useState("[]");
 
   const [customResumeText, setCustomResumeText] = useState("");
@@ -820,7 +827,14 @@ const App = () => {
     }
 
     const result = generateResume(selectedJob, localeEntries, selectedTemplate);
+    const coverLetter = generateCoverLetter({
+      job: selectedJob,
+      entries: localeEntries,
+      template: selectedTemplate,
+      locale: activeLocale,
+    });
     setGeneratedMd(result.outputMd);
+    setGeneratedCoverLetterMd(coverLetter.outputMd);
     setTraceJson(JSON.stringify(result.trace, null, 2));
   };
 
@@ -858,6 +872,15 @@ const App = () => {
     });
     const blob = new Blob([output], { type: "text/markdown" });
     downloadBlob(blob, buildObsidianFilename(now));
+  };
+
+  const exportCoverLetterMarkdown = () => {
+    if (!generatedCoverLetterMd) {
+      return;
+    }
+
+    const blob = new Blob([generatedCoverLetterMd], { type: "text/markdown" });
+    downloadBlob(blob, "tailored-cover-letter.md");
   };
 
   const importStateFromFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1107,6 +1130,7 @@ const App = () => {
             <button className="btn-primary" onClick={runGenerate}>{text.btnGenerate}</button>
             <button className="btn-secondary" onClick={exportMarkdown} disabled={!generatedMd}>{text.btnExportMarkdown}</button>
             <button className="btn-secondary" onClick={exportObsidianMarkdown} disabled={!generatedMd}>{text.btnExportObsidianMd}</button>
+            <button className="btn-secondary" onClick={exportCoverLetterMarkdown} disabled={!generatedCoverLetterMd}>{text.btnExportCoverLetter}</button>
             <button className="btn-secondary" onClick={exportState}>{text.btnExportDbJson}</button>
             <button className="btn-secondary" onClick={() => dbImportInputRef.current?.click()}>{text.btnImportDbJson}</button>
           </div>
@@ -1122,6 +1146,8 @@ const App = () => {
           />
           <h3>{text.outputMarkdown}</h3>
           <textarea aria-label={text.outputMarkdown} value={generatedMd} readOnly rows={14} />
+          <h3>{text.outputCoverLetter}</h3>
+          <textarea aria-label={text.outputCoverLetter} value={generatedCoverLetterMd} readOnly rows={12} />
           <h3>{text.outputTrace}</h3>
           <textarea aria-label={text.outputTrace} value={traceJson} readOnly rows={10} />
         </section>
