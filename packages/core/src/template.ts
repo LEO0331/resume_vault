@@ -195,26 +195,8 @@ const splitSkillContent = (value: string): string[] =>
     .map((part) => part.trim())
     .filter(Boolean);
 
-const GENERIC_SIGNAL_TAGS = new Set([
-  "summary",
-  "profile",
-  "experience",
-  "work",
-  "project",
-  "delivery",
-  "skill",
-  "tools",
-  "tech",
-  "achievement",
-  "award",
-]);
-
 const buildStrengthsText = (selected: ResumeEntry[], strengths: string[]): string => {
   const values = dedupe([
-    ...selected
-      .flatMap((entry) => entry.tags)
-      .filter((tag) => !GENERIC_SIGNAL_TAGS.has(tag.toLowerCase()))
-      .map(sentenceCase),
     ...selected.filter((entry) => entry.category === "skill").flatMap((entry) => splitSkillContent(entry.content)),
     ...selected
       .filter((entry) => entry.category === "summary")

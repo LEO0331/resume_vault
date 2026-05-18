@@ -14,6 +14,16 @@ const entries: ResumeEntry[] = [
     updatedAt: "2026-04-14T00:00:00.000Z",
   },
   {
+    id: "k1",
+    category: "skill",
+    title: "Core Skills",
+    content: "React, TypeScript",
+    locale: "en-AU",
+    tags: ["skill"],
+    weight: 3,
+    updatedAt: "2026-04-14T00:00:00.000Z",
+  },
+  {
     id: "x1",
     category: "experience",
     title: "Product Team Delivery",
@@ -38,6 +48,7 @@ const template: ResumeTemplate = {
   locale: "en-AU",
   sections: [
     { name: "summary", maxItems: 1, preferredTags: ["summary"] },
+    { name: "skill", maxItems: 1, preferredTags: ["skill"] },
     { name: "experience", maxItems: 1, preferredTags: ["experience"] },
   ],
 };
@@ -50,7 +61,7 @@ describe("generateResume", () => {
     expect(result.outputMd).toContain("## Summary");
     expect(result.outputMd).toContain("## Experience");
     expect(result.trace.length).toBeGreaterThan(0);
-    expect(result.trace.every((item) => item.entryId === "s1" || item.entryId === "x1")).toBe(true);
+    expect(result.trace.every((item) => item.entryId === "s1" || item.entryId === "k1" || item.entryId === "x1")).toBe(true);
     expect(result.matchReport).toBeDefined();
     expect(result.matchReport?.coverageScore).toBeGreaterThanOrEqual(0);
     expect(result.matchReport?.coverageScore).toBeLessThanOrEqual(100);
@@ -129,5 +140,36 @@ describe("generateCoverLetter", () => {
     expect(result.outputMd).toContain("熟悉 React 與 TypeScript 開發");
     expect(result.outputMd).toContain("此致");
     expect(result.outputMd).not.toContain("Kind regards");
+  });
+
+  it("does not introduce tag-only keywords into cover letter copy", () => {
+    const result = generateCoverLetter({
+      job: {
+        ...jd,
+        rawText: "Looking for frontend workflow delivery experience",
+      },
+      entries: [
+        {
+          id: "e1",
+          category: "experience",
+          title: "Platform Delivery",
+          content: "Delivered internal workflow tooling for frontend teams.",
+          locale: "en-AU",
+          tags: ["experience", "kubernetes", "terraform"],
+          weight: 4,
+          updatedAt: "2026-04-14T00:00:00.000Z",
+        },
+      ],
+      template: {
+        ...template,
+        sections: [{ name: "experience", maxItems: 1, preferredTags: ["experience"] }],
+      },
+      locale: "en-AU",
+      today: new Date("2026-05-18T00:00:00.000Z"),
+    });
+
+    expect(result.outputMd).toContain("Delivered internal workflow tooling for frontend teams.");
+    expect(result.outputMd).not.toContain("kubernetes");
+    expect(result.outputMd).not.toContain("terraform");
   });
 });
