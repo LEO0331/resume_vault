@@ -7,12 +7,20 @@ import process from "node:process";
 import { chromium } from "playwright";
 
 const HOST = "127.0.0.1";
-const PORT = "4175";
-const APP_URL = `http://${HOST}:${PORT}/`;
+const PREVIEW_PORT_CANDIDATES = ["4175", "4176", "4177", "4275"];
 const NODE_BIN = process.env.NODE_BIN ?? process.execPath;
 const RUN_LIVE_FETCH = process.env.E2E_RUN_LIVE_JD_FETCH === "1";
 const LIVE_FETCH_URL = process.env.E2E_LIVE_JD_URL ?? "https://www.seek.com.au/jobs/software-developer";
 const ROOT_DIR = fileURLToPath(new URL("../../", import.meta.url));
+const JD_JSON_PLACEHOLDER = '{"url":"...","text":"..."}';
+const JD_TEXT_LABEL = /^(Paste JD text|貼上職位描述內容|貼上 JD 內容)$/;
+const SAVE_JD_BUTTON = /^(Save JD from text|儲存職位描述（文字）|儲存 JD（文字）)$/;
+const IMPORT_JD_JSON_BUTTON = /^(Import JD JSON|匯入職位描述 JSON|匯入 JD JSON)$/;
+const GENERATE_BUTTON = /^(Generate|生成履歷)$/;
+const JD_SELECT_LABEL = /^(Select job description|選擇職位描述)$/;
+const OBSIDIAN_EXPORT_BUTTON = /^(Export Obsidian Markdown|匯出 Obsidian Markdown)$/;
+const COVER_LETTER_EXPORT_BUTTON = /^(Export Cover Letter|匯出 Cover Letter)$/;
+const INVALID_JD_JSON_STATUS = /Invalid JD JSON format\.|職位描述 JSON 格式錯誤。/;
 
 const assert = (condition, message) => {
   if (!condition) {
@@ -74,18 +82,35 @@ const waitForServer = (child) =>
     });
   });
 
-const startPreview = async () => {
+const startPreviewOnPort = async (port) => {
   const child = spawn(
     NODE_BIN,
-    ["../../node_modules/vite/bin/vite.js", "preview", "--host", HOST, "--port", PORT, "--strictPort"],
+    ["../../node_modules/vite/bin/vite.js", "preview", "--host", HOST, "--port", port, "--strictPort"],
     {
       cwd: new URL("../../apps/web/", import.meta.url),
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
-
   await waitForServer(child);
   return child;
+};
+
+const startPreview = async () => {
+  const errors = [];
+
+  for (const port of PREVIEW_PORT_CANDIDATES) {
+    try {
+      const child = await startPreviewOnPort(port);
+      return {
+        child,
+        appUrl: `http://${HOST}:${port}/`,
+      };
+    } catch (error) {
+      errors.push(`${port}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  throw new Error(`Unable to start Vite preview on candidate ports. ${errors.join(" | ")}`);
 };
 
 const createFixtures = async () => {
@@ -142,25 +167,56 @@ const importDbState = async (page, dbStatePath) => {
 };
 
 const saveJdFromText = async (page, jdText) => {
-  await page.getByLabel(/^(Paste JD text|貼上職位描述內容|貼上 JD 內容)$/).fill(jdText);
-  await page.getByRole("button", { name: /^(Save JD from text|儲存職位描述（文字）|儲存 JD（文字）)$/ }).click();
+  await page.getByLabel(JD_TEXT_LABEL).fill(jdText);
+  await page.getByRole("button", { name: SAVE_JD_BUTTON }).click();
 };
 
 const importJdJson = async (page, jdJsonPath) => {
   const jdJson = await readFile(jdJsonPath, "utf-8");
-  await page.getByPlaceholder('{"url":"...","text":"..."}').fill(jdJson);
-  await page.getByRole("button", { name: /^(Import JD JSON|匯入職位描述 JSON|匯入 JD JSON)$/ }).click();
+  await page.getByPlaceholder(JD_JSON_PLACEHOLDER).fill(jdJson);
+  await page.getByRole("button", { name: IMPORT_JD_JSON_BUTTON }).click();
+};
+
+const importInvalidJdJsonAndAssert = async (page) => {
+  await page.getByPlaceholder(JD_JSON_PLACEHOLDER).fill("{invalid");
+  await page.getByRole("button", { name: IMPORT_JD_JSON_BUTTON }).click();
+  const status = page.getByRole("status");
+  await status.waitFor();
+  const text = await status.textContent();
+  assert(
+    INVALID_JD_JSON_STATUS.test(String(text || "")),
+    `ERROR: Invalid JD JSON should surface an import error.\nWHY: JD JSON textarea -> parser -> UI status boundary must reject malformed input without mutating job state.\nFIX: Check importJobJson error handling and status rendering before changing assertions.`,
+  );
+};
+
+const selectMostRecentJob = async (page) => {
+  const select = page.getByLabel(JD_SELECT_LABEL);
+  const options = await select.locator("option").allTextContents();
+  assert(
+    options.length > 1,
+    `ERROR: Expected at least one persisted job option besides the placeholder.\nWHY: localStorage restore must preserve saved job descriptions across reloads.\nFIX: Check persist()/safeParse()/normalizeState() and the job-select wiring before changing this test.`,
+  );
+  await select.selectOption({ index: 1 });
+};
+
+const assertPersistenceAfterReload = async (page) => {
+  const statCards = page.locator(".stat-card strong");
+  const counts = await statCards.allTextContents();
+  assert(
+    counts.length >= 3 && Number(counts[0]) > 0 && Number(counts[1]) > 0 && Number(counts[2]) > 0,
+    `ERROR: Expected non-zero persisted counts after reload, got ${counts.join(", ")}.\nWHY: entries/templates/jobs must survive a browser reload on the same origin path.\nFIX: Check localStorage persistence and the initial-state hydration path before changing this assertion.`,
+  );
 };
 
 const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
-  const obsidianButton = page.getByRole("button", { name: /^(Export Obsidian Markdown|匯出 Obsidian Markdown)$/ });
-  const coverLetterButton = page.getByRole("button", { name: /^(Export Cover Letter|匯出 Cover Letter)$/ });
+  const obsidianButton = page.getByRole("button", { name: OBSIDIAN_EXPORT_BUTTON });
+  const coverLetterButton = page.getByRole("button", { name: COVER_LETTER_EXPORT_BUTTON });
   assert(await obsidianButton.count(), `${expectationLabel}: obsidian export button is missing.`);
   assert(await coverLetterButton.count(), `${expectationLabel}: cover letter export button is missing.`);
   assert(await obsidianButton.isDisabled(), `${expectationLabel}: obsidian export button should be disabled before generation.`);
   assert(await coverLetterButton.isDisabled(), `${expectationLabel}: cover letter export button should be disabled before generation.`);
 
-  await page.getByRole("button", { name: /^(Generate|生成履歷)$/ }).click();
+  await page.getByRole("button", { name: GENERATE_BUTTON }).click();
 
   const output = await page.locator("textarea[readonly][rows='14']").inputValue();
   assert(output.trim().length > 0, `${expectationLabel}: generated markdown is empty.`);
@@ -233,6 +289,11 @@ const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
   assert(coverLetterDownloaded === coverLetter, `${expectationLabel}: cover letter export should match generated output.`);
 };
 
+const reloadIntoEnglish = async (page) => {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await switchToEnglish(page);
+};
+
 const maybeRunLiveJdFetchScenario = async (page, fixtures) => {
   if (!RUN_LIVE_FETCH) {
     return;
@@ -255,17 +316,24 @@ const run = async () => {
 
   try {
     const page = await browser.newPage();
-    await page.goto(APP_URL, { waitUntil: "domcontentloaded" });
+    await page.goto(server.appUrl, { waitUntil: "domcontentloaded" });
     await switchToEnglish(page);
 
     await importDbState(page, fixtures.dbStatePath);
+    await importInvalidJdJsonAndAssert(page);
     await saveJdFromText(page, fixtures.jdText.trim());
+    await selectMostRecentJob(page);
     await runGenerateAndAssert(page, "sample word bank + pasted jd", fixtures.tempDir);
 
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await switchToEnglish(page);
+    await reloadIntoEnglish(page);
+    await assertPersistenceAfterReload(page);
+    await selectMostRecentJob(page);
+    await runGenerateAndAssert(page, "persisted state after reload", fixtures.tempDir);
+
+    await reloadIntoEnglish(page);
     await importDbState(page, fixtures.dbStatePath);
     await importJdJson(page, fixtures.jdJsonPath);
+    await selectMostRecentJob(page);
     await runGenerateAndAssert(page, "sample word bank + imported jd json", fixtures.tempDir);
 
     await maybeRunLiveJdFetchScenario(page, fixtures);
@@ -273,7 +341,7 @@ const run = async () => {
     process.stdout.write("Playwright E2E suite passed.\n");
   } finally {
     await browser.close();
-    server.kill("SIGTERM");
+    server.child.kill("SIGTERM");
     await rm(fixtures.tempDir, { recursive: true, force: true });
   }
 };
