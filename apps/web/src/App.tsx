@@ -1,5 +1,6 @@
 import { generateCoverLetter, generateResume, type JobDescription, type ResumeEntry, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { createTemplateFromImportedEntries, mergeImportedEntries, mergeImportedTemplate, parseImportedResume } from "./imported-resume";
 import { buildObsidianFilename, buildObsidianMarkdown } from "./obsidian";
 import { ensureStarterTemplates, getDefaultTemplateId, type AppLocale } from "./template-presets";
 
@@ -98,6 +99,7 @@ type UiText = {
   msgInvalidJdJson: string;
   msgNoParsableResume: string;
   msgImportedResumeCount: (count: number) => string;
+  msgImportedResumeNoNewEntries: string;
   msgUnsupportedFileType: (ext: string) => string;
   msgFileTooLarge: string;
   msgUrlSourceMismatch: string;
@@ -222,6 +224,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     msgInvalidJdJson: "職位描述 JSON 格式錯誤。",
     msgNoParsableResume: "找不到可解析的履歷內容。",
     msgImportedResumeCount: (count) => `已匯入 ${count} 筆履歷詞條。`,
+    msgImportedResumeNoNewEntries: "這份履歷已匯入過，沒有新增重複詞條。",
     msgUnsupportedFileType: (ext) => `不支援的檔案類型：${ext || "未知"}。`,
     msgFileTooLarge: "檔案過大，最大支援 2 MB。",
     msgUrlSourceMismatch: "URL 來源與語言模式不符（中文模式只接受 104）。",
@@ -336,6 +339,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     msgInvalidJdJson: "Invalid JD JSON format.",
     msgNoParsableResume: "No parsable content found in imported resume.",
     msgImportedResumeCount: (count) => `Imported ${count} entries from custom resume.`,
+    msgImportedResumeNoNewEntries: "This resume was already imported; no duplicate entries were added.",
     msgUnsupportedFileType: (ext) => `Unsupported file type: ${ext || "unknown"}.`,
     msgFileTooLarge: "File too large. Max supported size is 2 MB.",
     msgUrlSourceMismatch: "URL source does not match English mode (LinkedIn/Seek only).",
@@ -438,121 +442,6 @@ const parseSections = (input: string): TemplateSection[] => {
       };
     })
     .filter((section) => Number.isFinite(section.maxItems) && section.maxItems > 0);
-};
-
-const normalizeHeading = (heading: string): string => heading.toLowerCase().replace(/[^a-z\u4e00-\u9fff]+/g, "").trim();
-
-const headingToCategory = (heading: string): ResumeEntry["category"] => {
-  const normalized = normalizeHeading(heading);
-
-  if (normalized.includes("summary") || normalized.includes("profile") || normalized.includes("自我") || normalized.includes("摘要")) {
-    return "summary";
-  }
-
-  if (normalized.includes("experience") || normalized.includes("work") || normalized.includes("經歷") || normalized.includes("工作")) {
-    return "experience";
-  }
-
-  if (normalized.includes("project") || normalized.includes("作品") || normalized.includes("專案")) {
-    return "project";
-  }
-
-  if (normalized.includes("skill") || normalized.includes("技能") || normalized.includes("專長")) {
-    return "skill";
-  }
-
-  if (normalized.includes("achievement") || normalized.includes("award") || normalized.includes("成就") || normalized.includes("獎")) {
-    return "achievement";
-  }
-
-  return "experience";
-};
-
-const parseImportedResume = (text: string, locale: ResumeEntry["locale"]): ResumeEntry[] => {
-  const lines = text.split(/\r?\n/);
-  let currentHeading = "Imported";
-  let currentCategory: ResumeEntry["category"] = "experience";
-  const importedAt = new Date().toISOString();
-  const items: ResumeEntry[] = [];
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) {
-      continue;
-    }
-
-    const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
-    if (headingMatch) {
-      currentHeading = headingMatch[1].trim();
-      currentCategory = headingToCategory(currentHeading);
-      continue;
-    }
-
-    const bulletMatch = line.match(/^[-*]\s+(.+)$/) ?? line.match(/^\d+\.\s+(.+)$/);
-    const content = (bulletMatch ? bulletMatch[1] : line).trim();
-    if (!content) {
-      continue;
-    }
-
-    items.push({
-      id: uid(),
-      category: currentCategory,
-      title: currentHeading,
-      content,
-      locale,
-      tags: ["imported", "custom-resume", currentCategory],
-      weight: 1,
-      updatedAt: importedAt,
-    });
-  }
-
-  return items;
-};
-
-const categoryLabelForTemplate = (category: ResumeEntry["category"]): string => {
-  switch (category) {
-    case "summary":
-      return "summary";
-    case "experience":
-      return "experience";
-    case "project":
-      return "project";
-    case "skill":
-      return "skill";
-    case "achievement":
-      return "achievement";
-    default:
-      return "experience";
-  }
-};
-
-const createTemplateFromImportedEntries = (
-  importedEntries: ResumeEntry[],
-  locale: AppLocale,
-): ResumeTemplate => {
-  const counts = new Map<ResumeEntry["category"], number>();
-  const order: ResumeEntry["category"][] = [];
-
-  for (const entry of importedEntries) {
-    if (!counts.has(entry.category)) {
-      counts.set(entry.category, 0);
-      order.push(entry.category);
-    }
-    counts.set(entry.category, (counts.get(entry.category) ?? 0) + 1);
-  }
-
-  const sections: TemplateSection[] = order.map((category) => ({
-    name: categoryLabelForTemplate(category),
-    maxItems: Math.max(1, Math.min(8, counts.get(category) ?? 1)),
-    preferredTags: [category],
-  }));
-
-  return {
-    id: uid(),
-    name: locale === "zh-TW" ? `custom-zh-${new Date().toISOString().slice(0, 10)}` : `custom-en-${new Date().toISOString().slice(0, 10)}`,
-    locale,
-    sections,
-  };
 };
 
 const initialState = safeParse();
@@ -779,10 +668,12 @@ const App = () => {
     }
 
     const derivedTemplate = createTemplateFromImportedEntries(importedEntries, customResumeLocale);
-    const nextTemplates = [derivedTemplate, ...templates];
-    writeState({ entries: [...importedEntries, ...entries], templates: nextTemplates, jobs });
+    const nextEntries = mergeImportedEntries(entries, importedEntries);
+    const nextTemplates = mergeImportedTemplate(templates, derivedTemplate);
+    const importedCount = nextEntries.length - entries.length;
+    writeState({ entries: nextEntries, templates: nextTemplates, jobs });
     setSelectedTemplateId(derivedTemplate.id);
-    setStatus(`${text.msgImportedResumeCount(importedEntries.length)} ${text.msgTemplateCreated}`, "success");
+    setStatus(importedCount > 0 ? `${text.msgImportedResumeCount(importedCount)} ${text.msgTemplateCreated}` : text.msgImportedResumeNoNewEntries, "success");
   };
 
   const readUploadedText = async (

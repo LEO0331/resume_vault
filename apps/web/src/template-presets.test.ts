@@ -13,6 +13,15 @@ describe("template presets", () => {
     expect(ids).not.toContain("starter-hybrid-combination");
   });
 
+  it("can be run repeatedly without duplicating starter templates", () => {
+    const once = ensureStarterTemplates([]);
+    const twice = ensureStarterTemplates(once);
+
+    expect(twice).toEqual(once);
+    expect(twice.filter((template) => template.id === STARTER_TEMPLATE_ID_BY_LOCALE["en-AU"])).toHaveLength(1);
+    expect(twice.filter((template) => template.id === STARTER_TEMPLATE_ID_BY_LOCALE["zh-TW"])).toHaveLength(1);
+  });
+
   it("migrates legacy starter ids and replaces with canonical starter structure", () => {
     const customizedLegacy: ResumeTemplate = {
       id: "starter-reverse-chronological",
