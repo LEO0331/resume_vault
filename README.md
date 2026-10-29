@@ -139,7 +139,9 @@ npm run ats:tailor:pdf -- \
   --out outputs/company-role
 ```
 
-This PDF render is a convenience preview only. If built-in rendering fails, `resume.md` and `analysis.json` are still written. For your final polished export, paste `resume.md` into `markdown-resume` and export the PDF there.
+The built-in Playwright renderer produces a local A4 PDF with selectable text, readable headings and lists, and print pagination. If rendering fails, `resume.md` and `analysis.json` are still written with the failure recorded in analysis. Markdown output also remains compatible with `markdown-resume`.
+
+See [fictional before/after samples and verification notes](docs/samples/ats-quality/README.md) for English and Chinese examples, profile/education migration, and PDF checks. In the web app, fill in Candidate details before generating; identity/contact fields remain separate from JD matching.
 `cover-letter.md` remains a separate Markdown output and is not bundled into the resume export.
 
 ## Private ATS Pipeline (Seek, Local Only)
