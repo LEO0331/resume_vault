@@ -1,4 +1,15 @@
-export type EntryCategory = "summary" | "experience" | "project" | "skill" | "achievement";
+export type EntryCategory = "summary" | "experience" | "project" | "skill" | "achievement" | "education";
+
+/** Optional fields keep existing v1 banks and three-argument generation compatible. */
+export interface ResumeProfile {
+  name?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  linkedin?: string;
+  website?: string;
+  contactLine?: string;
+}
 
 export interface ResumeEntry {
   id: string;
@@ -9,6 +20,13 @@ export interface ResumeEntry {
   tags: string[];
   weight: number;
   updatedAt: string;
+  organization?: string;
+  position?: string;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  /** ID of the experience entry associated with a project. */
+  parentId?: string;
 }
 
 export interface TemplateSection {
