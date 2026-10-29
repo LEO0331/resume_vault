@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildOutputBaseName,
+  buildTailoredMarkdown,
   classifyRoleLevelByTitle,
   extractGuideSections,
   extractJobIdFromUrl,
@@ -10,9 +11,43 @@ import {
   parsePrivateProfileToEntries,
   parseSeekUrlList,
   rankEntriesForJob,
+  selectRankedResumeEntries,
 } from "../src/lib.mjs";
 
 describe("private ats lib", () => {
+  it("exports candidate facts without copying JD requirements into a resume", () => {
+    const output = buildTailoredMarkdown({
+      contact: { name: "Alex Chen", email: "alex@example.com", location: "Adelaide SA" },
+      jobTitle: "Kubernetes Engineer", jobUrl: "https://example.com/job", templateName: "ATS",
+      guideSections: { responsibilities: ["Manage Kubernetes clusters"], qualifications: ["PhD required"], experienceRequired: [] },
+      selectedEntries: [{ title: "Example Systems", category: "experience", content: "Built APIs with TypeScript." }],
+    });
+    expect(output).toContain("# Alex Chen");
+    expect(output).toContain("alex@example.com");
+    expect(output).toContain("Adelaide SA");
+    expect(output).toContain("Built APIs with TypeScript.");
+    expect(output).not.toContain("Kubernetes");
+    expect(output).not.toContain("PhD");
+    expect(output).not.toContain("Source:");
+    expect(output).not.toContain("## Education");
+  });
+
+  it("preserves every qualification beyond the ranked content cutoff", () => {
+    const ranking = [
+      ...Array.from({ length: 25 }, (_, index) => ({ entry: { id: `work-${index}`, category: "experience", content: "Built APIs" } })),
+      { entry: { id: "degree", category: "education", content: "BSc Computer Science" } },
+      { entry: { id: "diploma", category: "education", content: "Diploma in Engineering" } },
+    ];
+    const selected = selectRankedResumeEntries(ranking);
+    expect(selected).toHaveLength(26);
+    expect(selected.slice(-2).map((entry) => entry.id)).toEqual(["degree", "diploma"]);
+    expect(selected.some((entry) => entry.id === "work-24")).toBe(false);
+  });
+
+  it("recognises education in existing private profile input", () => {
+    const entries = parsePrivateProfileToEntries("Education Background\n- BSc Computer Science, Example University");
+    expect(entries[0].category).toBe("education");
+  });
   it("extracts seek job id from url", () => {
     expect(extractJobIdFromUrl("https://www.seek.com.au/job/84123456")).toBe("84123456");
     expect(extractJobIdFromUrl("https://au.seek.com/jobs-in-information-communication-technology?jobId=91874838&type=standard")).toBe("91874838");

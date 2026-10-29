@@ -45,9 +45,9 @@ Rules for the resume:
 
 {{CONTACT_LINE}}
 
-## Summary
+## Professional Summary
 
-## Core Skills
+## Technical Skills
 
 ## Professional Experience
 
@@ -57,6 +57,10 @@ Rules for the resume:
 
 ## Certifications / Additional Information
 
+- Omit sections without source content; never add placeholders.
+- Localize headings to zh-TW when requested.
+- Preserve employer, role, dates, and project relationships together; order dated roles newest first.
+- Keep matching scores, trace, JD requirements, and analysis outside the resume.
 - Use compact bullet points.
 - Prefer action verbs.
 - Prioritize content most relevant to the JD.

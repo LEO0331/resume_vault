@@ -1,3 +1,4 @@
+import { renderPdf } from "./src/pdf.mjs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,13 +11,12 @@ import {
   extractBulletSignals,
   extractGuideSections,
   extractJobIdFromUrl,
-  extractSeekLocation,
   isLikelyBotWall,
   isSeekJobUrl,
-  markdownToHtml,
   parsePrivateProfileToEntries,
   parseSeekUrlList,
   rankEntriesForJob,
+  selectRankedResumeEntries,
 } from "./src/lib.mjs";
 
 const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -65,22 +65,6 @@ const assertContact = (contact) => {
     if (!contact?.[field] || typeof contact[field] !== "string") {
       throw new Error(`Missing required contact field: ${field}`);
     }
-  }
-};
-
-const renderPdf = async (markdownText, outputPath) => {
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const page = await browser.newPage();
-    await page.setContent(markdownToHtml(markdownText), { waitUntil: "domcontentloaded" });
-    await page.pdf({
-      path: outputPath,
-      format: "A4",
-      margin: { top: "16mm", right: "12mm", bottom: "16mm", left: "12mm" },
-      printBackground: true,
-    });
-  } finally {
-    await browser.close();
   }
 };
 
@@ -203,13 +187,9 @@ const main = async () => {
 
       const guideSections = extractGuideSections(jd.text);
       const ranking = rankEntriesForJob(entries, jd.text);
-      const selectedEntries = ranking.slice(0, 24).map((row) => row.entry);
-      const jdLocation = extractSeekLocation({ title, text: jd.text });
+      const selectedEntries = selectRankedResumeEntries(ranking);
       const markdown = buildTailoredMarkdown({
-        contact: {
-          ...contact,
-          location: jdLocation || contact.location || "",
-        },
+        contact,
         templateName: "AU ATS Standard (Chronological)",
         jobUrl: jd.url || url,
         jobTitle: title || "Target Role",

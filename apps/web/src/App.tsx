@@ -1,14 +1,10 @@
-import { generateCoverLetter, generateResume, type JobDescription, type ResumeEntry, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
+import { generateCoverLetter, generateResume, type JobDescription, type ResumeEntry, type ResumeProfile, type ResumeTemplate, type TemplateSection } from "@resume-vault/core";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { createTemplateFromImportedEntries, mergeImportedEntries, mergeImportedTemplate, parseImportedResume } from "./imported-resume";
+import { createTemplateFromImportedEntries, mergeImportedEntries, mergeImportedTemplate, parseImportedProfile, parseImportedResume } from "./imported-resume";
 import { buildObsidianFilename, buildObsidianMarkdown } from "./obsidian";
 import { ensureStarterTemplates, getDefaultTemplateId, type AppLocale } from "./template-presets";
 
-type StoredState = {
-  entries: ResumeEntry[];
-  templates: ResumeTemplate[];
-  jobs: JobDescription[];
-};
+import { emptyState, normalizeState, type StoredState } from "./stored-state";
 
 type StatusTone = "success" | "error";
 
@@ -113,12 +109,14 @@ type UiText = {
   catProject: string;
   catSkill: string;
   catAchievement: string;
+  catEducation: string;
   filterAll: string;
   filterExperience: string;
   filterSummary: string;
   filterProject: string;
   filterSkill: string;
   filterAchievement: string;
+  filterEducation: string;
   msgTemplateCreated: string;
 };
 
@@ -238,12 +236,14 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     catProject: "專案",
     catSkill: "技能",
     catAchievement: "成就",
+    catEducation: "學歷",
     filterAll: "全部",
     filterExperience: "只看經歷",
     filterSummary: "只看摘要",
     filterProject: "只看專案",
     filterSkill: "只看技能",
     filterAchievement: "只看成就",
+    filterEducation: "只看學歷",
     msgTemplateCreated: "已根據匯入履歷建立自訂模板。",
   },
   "en-AU": {
@@ -353,27 +353,17 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     catProject: "project",
     catSkill: "skill",
     catAchievement: "achievement",
+    catEducation: "education",
     filterAll: "All",
     filterExperience: "Experience",
     filterSummary: "Summary",
     filterProject: "Projects",
     filterSkill: "Skills",
     filterAchievement: "Achievements",
+    filterEducation: "Education",
     msgTemplateCreated: "Created a custom template from imported resume structure.",
   },
 };
-
-const emptyState = (): StoredState => ({
-  entries: [],
-  templates: ensureStarterTemplates([]),
-  jobs: [],
-});
-
-const normalizeState = (state: Partial<StoredState>): StoredState => ({
-  entries: Array.isArray(state.entries) ? state.entries : [],
-  templates: ensureStarterTemplates(Array.isArray(state.templates) ? state.templates : []),
-  jobs: Array.isArray(state.jobs) ? state.jobs : [],
-});
 
 const parseJsonSafely = <T,>(input: string): T => {
   return JSON.parse(input, (key, value) => {
@@ -447,6 +437,7 @@ const parseSections = (input: string): TemplateSection[] => {
 const initialState = safeParse();
 
 const App = () => {
+  const [profile, setProfile] = useState<ResumeProfile>(initialState.profile);
   const [entries, setEntries] = useState<ResumeEntry[]>(initialState.entries);
   const [templates, setTemplates] = useState<ResumeTemplate[]>(initialState.templates);
   const [jobs, setJobs] = useState<JobDescription[]>(initialState.jobs);
@@ -463,10 +454,11 @@ const App = () => {
   const [entryCategory, setEntryCategory] = useState<ResumeEntry["category"]>("experience");
   const [entryLocale, setEntryLocale] = useState<ResumeEntry["locale"]>("zh-TW");
   const [entryWeight, setEntryWeight] = useState(1);
+  const [entryDetails, setEntryDetails] = useState({ organization: "", position: "", startDate: "", endDate: "" });
 
   const [templateName, setTemplateName] = useState("base-custom");
   const [templateLocale, setTemplateLocale] = useState<ResumeTemplate["locale"]>("zh-TW");
-  const [templateSections, setTemplateSections] = useState("summary|2|summary\nexperience|4|experience\nproject|3|project\nskill|5|skill\nachievement|2|achievement");
+  const [templateSections, setTemplateSections] = useState("summary|2|summary\nexperience|4|experience\nproject|3|project\nskill|5|skill\neducation|3|education\nachievement|2|achievement");
 
   const [jdText, setJdText] = useState("");
   const [jdUrl, setJdUrl] = useState("");
@@ -540,8 +532,10 @@ const App = () => {
     return () => window.clearTimeout(timeout);
   }, [importMessage]);
 
-  const writeState = (next: StoredState) => {
-    persist(next);
+  const writeState = (next: Omit<StoredState, "profile"> & { profile?: ResumeProfile }) => {
+    const nextProfile = next.profile ?? profile;
+    persist({ ...next, profile: nextProfile });
+    setProfile(nextProfile);
     setEntries(next.entries);
     setTemplates(next.templates);
     setJobs(next.jobs);
@@ -564,6 +558,7 @@ const App = () => {
         .filter(Boolean),
       weight: entryWeight,
       updatedAt: new Date().toISOString(),
+      ...Object.fromEntries(Object.entries(entryDetails).filter(([, value]) => value.trim()).map(([key, value]) => [key, value.trim()])),
     };
 
     writeState({ entries: [newEntry, ...entries], templates, jobs });
@@ -571,6 +566,7 @@ const App = () => {
     setEntryContent("");
     setEntryTags("");
     setEntryWeight(1);
+    setEntryDetails({ organization: "", position: "", startDate: "", endDate: "" });
   };
 
   const removeEntry = (id: string) => {
@@ -671,7 +667,7 @@ const App = () => {
     const nextEntries = mergeImportedEntries(entries, importedEntries);
     const nextTemplates = mergeImportedTemplate(templates, derivedTemplate);
     const importedCount = nextEntries.length - entries.length;
-    writeState({ entries: nextEntries, templates: nextTemplates, jobs });
+    writeState({ entries: nextEntries, templates: nextTemplates, jobs, profile: { ...profile, ...parseImportedProfile(customResumeText) } });
     setSelectedTemplateId(derivedTemplate.id);
     setStatus(importedCount > 0 ? `${text.msgImportedResumeCount(importedCount)} ${text.msgTemplateCreated}` : text.msgImportedResumeNoNewEntries, "success");
   };
@@ -717,12 +713,13 @@ const App = () => {
       return;
     }
 
-    const result = generateResume(selectedJob, localeEntries, selectedTemplate);
+    const result = generateResume(selectedJob, localeEntries, selectedTemplate, profile);
     const coverLetter = generateCoverLetter({
       job: selectedJob,
       entries: localeEntries,
       template: selectedTemplate,
       locale: activeLocale,
+      candidateName: profile.name,
     });
     setGeneratedMd(result.outputMd);
     setGeneratedCoverLetterMd(coverLetter.outputMd);
@@ -730,7 +727,7 @@ const App = () => {
   };
 
   const exportState = () => {
-    const blob = new Blob([JSON.stringify({ entries, templates, jobs }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ entries, templates, jobs, profile }, null, 2)], { type: "application/json" });
     downloadBlob(blob, "resume-vault-data.json");
   };
 
@@ -903,6 +900,17 @@ const App = () => {
       ) : null}
 
       <div className="board">
+        <section className="panel panel-wide" id="profile-section">
+          <h2>{activeLocale === "zh-TW" ? "個人與聯絡資料" : "Candidate and contact details"}</h2>
+          <div className="grid two">
+            {([ ["name", "姓名", "Name"], ["email", "電子郵件", "Email"], ["phone", "電話", "Phone"], ["location", "所在地", "Location"], ["linkedin", "LinkedIn", "LinkedIn"], ["website", "個人網站", "Website"], ["contactLine", "其他聯絡資訊", "Additional contact details"] ] as const).map(([field, zh, en]) => (
+              <label key={field}>
+                {activeLocale === "zh-TW" ? zh : en}
+                <input aria-label={activeLocale === "zh-TW" ? zh : en} value={profile[field] ?? ""} onChange={(event) => writeState({ entries, templates, jobs, profile: { ...profile, [field]: event.target.value } })} />
+              </label>
+            ))}
+          </div>
+        </section>
         <section className="panel panel-wide" id="entries-section">
           <h2>{text.panelEntries}</h2>
           <p>{text.experienceBankHint}</p>
@@ -914,6 +922,7 @@ const App = () => {
               <option value="project">{text.catProject}</option>
               <option value="skill">{text.catSkill}</option>
               <option value="achievement">{text.catAchievement}</option>
+              <option value="education">{text.catEducation}</option>
             </select>
           </div>
           <textarea aria-label={text.labelContent} value={entryContent} onChange={(event) => setEntryContent(event.target.value)} placeholder={text.labelContent} rows={3} />
@@ -931,6 +940,17 @@ const App = () => {
               placeholder={text.labelWeight}
             />
           </div>
+          <details>
+            <summary>{activeLocale === "zh-TW" ? "任職／學歷詳細資料（選填）" : "Employment / education details (optional)"}</summary>
+            <div className="grid two">
+              {([ ["organization", "公司／學校", "Employer / institution"], ["position", "職位／學位", "Position / degree"], ["startDate", "開始日期", "Start date"], ["endDate", "結束日期（或 Present）", "End date (or Present)"] ] as const).map(([field, zh, en]) => (
+                <label key={field}>
+                  {activeLocale === "zh-TW" ? zh : en}
+                  <input aria-label={activeLocale === "zh-TW" ? zh : en} value={entryDetails[field]} onChange={(event) => setEntryDetails({ ...entryDetails, [field]: event.target.value })} />
+                </label>
+              ))}
+            </div>
+          </details>
           <button className="btn-primary" onClick={addEntry}>{text.btnAddEntry}</button>
           <div className="entry-filters">
             <button className={entryFilter === "all" ? "chip active" : "chip"} onClick={() => setEntryFilter("all")}>
@@ -950,6 +970,9 @@ const App = () => {
             </button>
             <button className={entryFilter === "achievement" ? "chip active" : "chip"} onClick={() => setEntryFilter("achievement")}>
               {text.filterAchievement}
+            </button>
+            <button className={entryFilter === "education" ? "chip active" : "chip"} onClick={() => setEntryFilter("education")}>
+              {text.filterEducation}
             </button>
           </div>
           {visibleEntries.length === 0 ? (

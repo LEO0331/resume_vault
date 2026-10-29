@@ -119,6 +119,7 @@ const createFixtures = async () => {
   const template = JSON.parse(await readFile(join(ROOT_DIR, "docs/samples/template-starter-ats-au-standard-en.json"), "utf-8"));
   const jdText = await readFile(join(ROOT_DIR, "docs/samples/jd-seek-senior-frontend.txt"), "utf-8");
 
+  entries.push({ id: "fictional-education", category: "education", title: "Example University", content: "Bachelor of Engineering", locale: "en-AU", tags: ["education"], weight: 1, updatedAt: "2024-01-01T00:00:00.000Z", startDate: "2018", endDate: "2022" });
   const dbStatePath = join(tempDir, "db-state.json");
   const jdJsonPath = join(tempDir, "jd-sample.json");
   const liveJdJsonPath = join(tempDir, "jd-live.json");
@@ -164,6 +165,8 @@ const importDbState = async (page, dbStatePath) => {
   const dbInput = page.locator("input[type='file'][accept*='application/json']");
   await dbInput.setInputFiles(dbStatePath);
   await page.waitForTimeout(300);
+  await page.getByLabel("Name", { exact: true }).fill("Alex Example");
+  await page.getByLabel("Email", { exact: true }).fill("alex@example.test");
 };
 
 const saveJdFromText = async (page, jdText) => {
@@ -200,6 +203,8 @@ const selectMostRecentJob = async (page) => {
 };
 
 const assertPersistenceAfterReload = async (page) => {
+  assert(await page.getByLabel("Name", { exact: true }).inputValue() === "Alex Example", "Candidate identity must persist after reload.");
+  assert(await page.getByLabel("Email", { exact: true }).inputValue() === "alex@example.test", "Contact information must persist after reload.");
   const statCards = page.locator(".stat-card strong");
   const counts = await statCards.allTextContents();
   assert(
@@ -220,7 +225,10 @@ const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
 
   const output = await page.locator("textarea[readonly][rows='14']").inputValue();
   assert(output.trim().length > 0, `${expectationLabel}: generated markdown is empty.`);
-  assert(output.includes("# Tailored Resume"), `${expectationLabel}: missing Tailored Resume title.`);
+  assert(output.startsWith("# Alex Example\n"), `${expectationLabel}: missing candidate identity.`);
+  assert(output.includes("alex@example.test"), `${expectationLabel}: contact details were lost.`);
+  assert(output.includes("## Education") && output.includes("Example University"), `${expectationLabel}: education was lost.`);
+  assert(!/JD source:|coverageScore|priority_overlap:|Tailored Resume/.test(output), `${expectationLabel}: internal metadata leaked into resume.`);
   if (process.env.E2E_DEBUG === "1") {
     process.stdout.write(`\n--- ${expectationLabel} output ---\n${output}\n--- end output ---\n`);
   }
@@ -287,6 +295,15 @@ const runGenerateAndAssert = async (page, expectationLabel, tempDir) => {
   await coverLetterDownload.saveAs(coverLetterPath);
   const coverLetterDownloaded = await readFile(coverLetterPath, "utf-8");
   assert(coverLetterDownloaded === coverLetter, `${expectationLabel}: cover letter export should match generated output.`);
+
+  const dbDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /^(Export DB JSON|匯出 DB JSON)$/ }).click();
+  const dbDownload = await dbDownloadPromise;
+  const dbPath = join(tempDir, "exported-db.json");
+  await dbDownload.saveAs(dbPath);
+  const db = JSON.parse(await readFile(dbPath, "utf-8"));
+  assert(db.profile?.name === "Alex Example" && db.profile?.email === "alex@example.test", "DB export must preserve candidate contact.");
+  assert(db.entries.some((entry) => entry.category === "education" && entry.title === "Example University"), "DB export must preserve education.");
 };
 
 const reloadIntoEnglish = async (page) => {
@@ -312,9 +329,10 @@ const maybeRunLiveJdFetchScenario = async (page, fixtures) => {
 const run = async () => {
   const fixtures = await createFixtures();
   const server = await startPreview();
-  const browser = await chromium.launch({ headless: true });
+  let browser;
 
   try {
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(server.appUrl, { waitUntil: "domcontentloaded" });
     await switchToEnglish(page);
@@ -340,7 +358,7 @@ const run = async () => {
 
     process.stdout.write("Playwright E2E suite passed.\n");
   } finally {
-    await browser.close();
+    await browser?.close();
     server.child.kill("SIGTERM");
     await rm(fixtures.tempDir, { recursive: true, force: true });
   }

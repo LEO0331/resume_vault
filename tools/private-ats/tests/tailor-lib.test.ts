@@ -12,8 +12,8 @@ import {
   validateTailoredResume,
 } from "../src/tailor-lib.mjs";
 
-const sampleResume = `# Sheng Zhao
-Adelaide SA | bestaisecurity@gmail.com | 0472687078
+const sampleResume = `# Alex Chen
+Adelaide SA | alex@example.com | 0400 000 000
 
 ## Summary
 - Proactive IT student focused on AI security and authentication systems.
@@ -43,8 +43,8 @@ describe("tailor lib", () => {
         name: "Fallback Name",
       }),
     ).toEqual({
-      candidateName: "Sheng Zhao",
-      contactLine: "Adelaide SA | bestaisecurity@gmail.com | 0472687078",
+      candidateName: "Alex Chen",
+      contactLine: "Adelaide SA | alex@example.com | 0400 000 000",
     });
   });
 
@@ -54,6 +54,83 @@ describe("tailor lib", () => {
     expect(entries.some((entry) => entry.category === "skill")).toBe(true);
     expect(entries.some((entry) => entry.category === "experience")).toBe(true);
     expect(entries.some((entry) => entry.category === "project")).toBe(true);
+    expect(entries.some((entry) => entry.category === "education")).toBe(true);
+  });
+
+  it("keeps role headings, dates, and achievements together when selecting source entries", () => {
+    const entries = parseResumeMarkdownToEntries(`# Alex Chen
+## Professional Experience
+### Software Engineer | Example Systems
+2023-04 - Present
+- Built secure APIs using TypeScript.
+- Added integration tests.
+### Intern | Fictional Labs
+2021 - 2022
+- Maintained documentation.
+## Education
+### BSc Computer Science | Example University
+2017 - 2021
+`);
+    expect(entries).toHaveLength(3);
+    expect(entries[0].title).toBe("Software Engineer | Example Systems");
+    expect(entries[0]).toMatchObject({ startDate: "2023-04", endDate: "Present" });
+    expect(entries[0].content).not.toContain("2023-04 - Present");
+    expect(entries[0].content).toContain("- Added integration tests.");
+    expect(entries[2].category).toBe("education");
+    expect(entries[2]).toMatchObject({ startDate: "2017", endDate: "2021" });
+    const output = buildFallbackResumeMarkdown({ candidateName: "Alex Chen", selectedEntries: entries, currentResumeMarkdown: "" });
+    expect(output).toContain("\n\n2023-04 - Present\n\n");
+    expect(output).not.toContain("- 2023-04 - Present");
+  });
+
+  it("promotes a Chinese date-only metadata line without treating other dates as a role range", () => {
+    const entries = parseResumeMarkdownToEntries("## 工作經歷\n### 工程師 | 範例科技\n2024-01 – 至今\n- 於 2024 年完成系統測試。", "zh-TW");
+    expect(entries[0]).toMatchObject({ startDate: "2024-01", endDate: "至今" });
+    expect(entries[0].content).toBe("- 於 2024 年完成系統測試。");
+  });
+
+  it("preserves multiline contacts and supplemental contact fields", () => {
+    expect(extractResumeHeader("# Alex Chen\nalex@example.com\n0400 000 000\n\n## Summary\nEngineer", {
+      website: "https://example.com/alex",
+    }).contactLine).toBe("alex@example.com | 0400 000 000 | https://example.com/alex");
+  });
+
+  it("migrates education into legacy JSON templates", () => {
+    const template = parseTemplateInput(JSON.stringify({ id: "legacy", sections: [{ name: "experience", maxItems: 1 }] }));
+    expect(template.id).toBe("legacy");
+    expect(template.sections.map((section) => section.name)).toEqual(["experience", "education"]);
+  });
+
+  it("does not restore unselected content or create empty placeholders", () => {
+    const output = buildFallbackResumeMarkdown({
+      candidateName: "Alex Chen", contactLine: "alex@example.com",
+      selectedEntries: [{ category: "experience", title: "Example Systems", content: "Built APIs." }],
+      currentResumeMarkdown: sampleResume,
+    });
+    expect(output).toContain("Built APIs.");
+    expect(output).toContain("Bachelor of Information Technology");
+    expect(output).not.toContain("Volunteer Website");
+    expect(output).not.toContain("OpenID Connect");
+    expect(output).not.toContain("Not provided");
+    expect(output).not.toContain("## Selected Projects");
+    expect(validateTailoredResume({ resumeMarkdown: output, candidateName: "Alex Chen" }).errors).toEqual([]);
+  });
+
+  it("validates Chinese resumes and rejects missing contacts or analysis", () => {
+    const output = "# 陳曉明\n\nengineer@example.com\n\n## 學歷\n\n- 範例大學 資訊工程學士\n";
+    expect(validateTailoredResume({ resumeMarkdown: output, candidateName: "陳曉明", contactFragments: ["engineer@example.com"] }).errors).toEqual([]);
+    expect(validateTailoredResume({ resumeMarkdown: output, contactFragments: ["missing@example.com"] }).errors).not.toEqual([]);
+    expect(validateTailoredResume({ resumeMarkdown: `${output}\n> JD source: paste` }).errors).not.toEqual([]);
+  });
+
+  it("preserves and localizes Chinese source content without adding absent sections", () => {
+    const source = "# 陳曉明\n\nengineer@example.com\n\n## 學歷\n\n- 範例大學 資訊工程學士\n";
+    const entries = parseResumeMarkdownToEntries(source, "zh-TW");
+    const output = buildFallbackResumeMarkdown({ candidateName: "陳曉明", contactLine: "engineer@example.com", selectedEntries: entries, currentResumeMarkdown: source });
+    expect(output).toContain("## 學歷");
+    expect(output).toContain("範例大學 資訊工程學士");
+    expect(output).not.toContain("Education");
+    expect(output).not.toContain("Not provided");
   });
 
   it("parses template markdown headings into core template sections", () => {
@@ -71,12 +148,12 @@ describe("tailor lib", () => {
       "en-AU",
     );
 
-    expect(template.sections.map((section) => section.name)).toEqual(["summary", "skill", "experience", "project"]);
+    expect(template.sections.map((section) => section.name)).toEqual(["summary", "skill", "experience", "project", "education"]);
   });
 
   it("parses model output split into resume and analysis", () => {
     const parsed = parseTailorModelOutput(`---RESUME_MD---
-# Sheng Zhao
+# Alex Chen
 
 ## Summary
 - Tailored summary
@@ -104,17 +181,17 @@ describe("tailor lib", () => {
   "recommended_filename": "resume.md"
 }`);
 
-    expect(parsed.resumeMarkdown.startsWith("# Sheng Zhao")).toBe(true);
+    expect(parsed.resumeMarkdown.startsWith("# Alex Chen")).toBe(true);
     expect(parsed.analysis.target_role).toBe("Software Developer");
   });
 
   it("builds a markdown-resume-friendly fallback and validates required headings", () => {
     const output = buildFallbackResumeMarkdown({
-      candidateName: "Sheng Zhao",
+      candidateName: "Alex Chen",
       contactLine: buildContactLine({
         location: "Adelaide SA",
-        email: "bestaisecurity@gmail.com",
-        phone: "0472687078",
+        email: "alex@example.com",
+        phone: "0400 000 000",
       }),
       selectedEntries: [
         {
@@ -141,20 +218,20 @@ describe("tailor lib", () => {
 
     const validation = validateTailoredResume({
       resumeMarkdown: output,
-      candidateName: "Sheng Zhao",
-      contactLine: "Adelaide SA | bestaisecurity@gmail.com | 0472687078",
+      candidateName: "Alex Chen",
+      contactLine: "Adelaide SA | alex@example.com | 0400 000 000",
     });
 
-    expect(output).toContain("## Core Skills");
+    expect(output).toContain("## Technical Skills");
     expect(output).toContain("## Professional Experience");
     expect(validation.errors).toEqual([]);
   });
 
   it("accepts reordered contact formatting as long as all contact fragments are present", () => {
     const validation = validateTailoredResume({
-      resumeMarkdown: `# Sheng Zhao
+      resumeMarkdown: `# Alex Chen
 
-bestaisecurity@gmail.com | 0472687078 | Adelaide SA
+alex@example.com | 0400 000 000 | Adelaide SA
 
 ## Summary
 
@@ -172,8 +249,8 @@ bestaisecurity@gmail.com | 0472687078 | Adelaide SA
 
 - Degree
 `,
-      candidateName: "Sheng Zhao",
-      contactLine: ["Adelaide SA", "bestaisecurity@gmail.com", "0472687078"],
+      candidateName: "Alex Chen",
+      contactLine: ["Adelaide SA", "alex@example.com", "0400 000 000"],
     });
 
     expect(validation.errors).toEqual([]);

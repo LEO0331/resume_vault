@@ -5,12 +5,11 @@ import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { chromium } from "playwright";
-import { markdownToHtml, parsePrivateProfileToEntries } from "./src/lib.mjs";
+import { renderPdf } from "./src/pdf.mjs";
+import { parsePrivateProfileToEntries } from "./src/lib.mjs";
 import {
   buildContactLine,
   buildDeterministicAnalysis,
-  buildFallbackResumeMarkdown,
   buildSelectedEntriesText,
   extractJdMetadata,
   extractResumeHeader,
@@ -61,22 +60,6 @@ const runCommand = (cmd, args, cwd = ROOT_DIR, input = "") =>
     });
     child.stdin.end(input);
   });
-
-const renderPdf = async (markdownText, outputPath) => {
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const page = await browser.newPage();
-    await page.setContent(markdownToHtml(markdownText), { waitUntil: "domcontentloaded" });
-    await page.pdf({
-      path: outputPath,
-      format: "A4",
-      margin: { top: "16mm", right: "12mm", bottom: "16mm", left: "12mm" },
-      printBackground: true,
-    });
-  } finally {
-    await browser.close();
-  }
-};
 
 const firstErrorLine = (error) =>
   String(error instanceof Error ? error.message : error || "")
@@ -232,7 +215,10 @@ const main = async () => {
 
   const template = parseTemplateInput(templateMarkdown, locale);
   const trace = core.scoreEntries(jdInput.jd.rawText, allEntries);
-  const selectedEntries = core.selectEntriesForTemplate(trace, allEntries, template);
+  const selectedEntries = [
+    ...core.selectEntriesForTemplate(trace, allEntries, template).filter((entry) => entry.category !== "education"),
+    ...allEntries.filter((entry) => entry.category === "education"),
+  ];
   const matchReport = core.buildMatchReport(jdInput.jd.rawText, selectedEntries);
   const jdMeta = extractJdMetadata({ jdText: jdInput.jd.rawText, jdJson: jdInput.parsedJson });
   const coverLetterOutput = core.generateCoverLetter({
@@ -247,7 +233,7 @@ const main = async () => {
   const slug = slugifySegment([jdMeta.company, jdMeta.role].filter(Boolean).join("-"));
   const outputDir = resolve(ROOT_DIR, requestedOutDir ?? join(DEFAULT_OUTPUT_ROOT, slug));
   const contactLine = header.contactLine || buildContactLine(contact);
-  const contactFragments = [contact?.location, contact?.email, contact?.phone, contact?.linkedin]
+  const contactFragments = [contact?.location, contact?.email, contact?.phone, contact?.linkedin, contact?.website]
     .map((value) => String(value || "").trim())
     .filter(Boolean);
   const pdfRenderingNotes = [
@@ -284,19 +270,16 @@ const main = async () => {
       2,
     ),
     LOCALE: locale,
-    CANDIDATE_NAME: header.candidateName || "Candidate",
+    CANDIDATE_NAME: header.candidateName,
     CONTACT_LINE: contactLine,
   };
   const userPrompt = fillPromptTemplate(userPromptTemplate, promptValues);
   const fullPrompt = `${systemPromptTemplate.trim()}\n\n${userPrompt.trim()}\n`;
   await buildPromptFiles(outputDir, fullPrompt, systemPromptTemplate, userPrompt);
 
-  let resumeMarkdownOutput = buildFallbackResumeMarkdown({
-    candidateName: header.candidateName || String(contact?.name || "").trim() || "Candidate",
-    contactLine,
-    selectedEntries,
-    currentResumeMarkdown: resumeMarkdown,
-  });
+  let resumeMarkdownOutput = core.generateResume(jdInput.jd, allEntries, template, {
+    ...(contact ?? {}), name: header.candidateName, contactLine,
+  }).outputMd;
 
   let analysis = buildDeterministicAnalysis({
     jdTitle: jdMeta.role,
@@ -349,7 +332,7 @@ const main = async () => {
 
   if (renderPdfFlag) {
     try {
-      await renderPdf(resumeMarkdownOutput, join(outputDir, "resume.pdf"));
+      await renderPdf(resumeMarkdownOutput, join(outputDir, "resume.pdf"), { locale });
       analysis.pdf_rendering_notes = sanitizeStringArray([
         ...analysis.pdf_rendering_notes,
         "A local PDF was rendered with the built-in Playwright renderer. Compare it with markdown-resume before final submission.",

@@ -1,4 +1,5 @@
 import { URL } from "node:url";
+import { buildFallbackResumeMarkdown } from "./tailor-lib.mjs";
 
 /**
  * @typedef {{
@@ -108,11 +109,12 @@ export const buildOutputBaseName = (rawUrl, fallbackIndex) => {
 };
 
 const headingToCategory = (heading) => {
-  const normalized = heading.toLowerCase().replace(/[^a-z0-9\s]/g, " ");
-  if (normalized.includes("summary") || normalized.includes("profile")) return "summary";
-  if (normalized.includes("experience") || normalized.includes("work")) return "experience";
-  if (normalized.includes("project")) return "project";
-  if (normalized.includes("skill")) return "skill";
+  const normalized = heading.toLowerCase().replace(/[^a-z0-9\s\u4e00-\u9fff]/g, " ");
+  if (normalized.includes("summary") || normalized.includes("profile") || normalized.includes("摘要")) return "summary";
+  if (normalized.includes("experience") || normalized.includes("work") || normalized.includes("經歷")) return "experience";
+  if (normalized.includes("project") || normalized.includes("專案")) return "project";
+  if (normalized.includes("skill") || normalized.includes("技能")) return "skill";
+  if (normalized.includes("education") || normalized.includes("學歷")) return "education";
   if (normalized.includes("achievement")) return "achievement";
   return "experience";
 };
@@ -127,6 +129,8 @@ const sectionToTags = (category) => {
       return ["project", "delivery"];
     case "skill":
       return ["skill", "tools", "tech", "strength", "domain"];
+    case "education":
+      return ["education"];
     case "achievement":
       return ["achievement", "impact", "award"];
     default:
@@ -166,7 +170,7 @@ export const parsePrivateProfileToEntries = (profileText, locale = "en-AU") => {
 
     const isHeading =
       /:$/.test(line) ||
-      /^(technical skills|education background|working experience|volunteer experience|projects|professional profile)$/i.test(line);
+      /^(technical skills|education background|working experience|volunteer experience|projects|professional profile|專業摘要|技術技能|工作經歷|精選專案|學歷)$/i.test(line);
 
     if (isHeading && !/^[\-*•]/.test(line)) {
       flushBucket();
@@ -188,33 +192,12 @@ export const parsePrivateProfileToEntries = (profileText, locale = "en-AU") => {
   return entries;
 };
 
-export const buildTailoredMarkdown = ({ contact, templateName, jobUrl, jobTitle, guideSections, selectedEntries }) => {
-  const lines = [];
-  const contactLine = [contact.location, contact.email, contact.phone, contact.linkedin].filter(Boolean).join(" | ");
-  lines.push(`# ${contact.name}`);
-  if (contactLine) {
-    lines.push(contactLine);
-  }
-  lines.push("");
-  lines.push("## Target Role");
-  lines.push(`- ${jobTitle}`);
-  lines.push(`- Source: ${jobUrl}`);
-  lines.push(`- Template: ${templateName}`);
-  lines.push("");
-  lines.push("## Key Responsibilities");
-  for (const line of guideSections.responsibilities.slice(0, 8)) lines.push(`- ${line}`);
-  lines.push("");
-  lines.push("## Experience Required");
-  for (const line of guideSections.experienceRequired.slice(0, 8)) lines.push(`- ${line}`);
-  lines.push("");
-  lines.push("## Qualifications");
-  for (const line of guideSections.qualifications.slice(0, 8)) lines.push(`- ${line}`);
-  lines.push("");
-  lines.push("## Tailored Highlights");
-  for (const entry of selectedEntries.slice(0, 20)) lines.push(`- ${entry.content}`);
-  lines.push("");
-  return `${lines.join("\n").trim()}\n`;
-};
+export const buildTailoredMarkdown = ({ contact, selectedEntries }) => buildFallbackResumeMarkdown({
+  candidateName: contact?.name,
+  contactLine: [contact?.location, contact?.email, contact?.phone, contact?.linkedin, contact?.website].filter(Boolean).join(" | "),
+  selectedEntries,
+  currentResumeMarkdown: "",
+});
 
 export const rankEntriesForJob = (entries, jdText) => {
   const jdTokens = new Set(tokenizeAlphaNum(jdText));
@@ -233,82 +216,13 @@ export const rankEntriesForJob = (entries, jdText) => {
     });
 };
 
-export const markdownToHtml = (markdownText) => {
-  const escapeHtml = (value) =>
-    value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+// Education is factual background and must survive a JD ranking cutoff.
+export const selectRankedResumeEntries = (ranking, maxItems = 24) => [
+  ...ranking.slice(0, maxItems).map((row) => row.entry).filter((entry) => entry.category !== "education"),
+  ...ranking.map((row) => row.entry).filter((entry) => entry.category === "education"),
+];
 
-  const lines = String(markdownText || "").split(/\r?\n/);
-  const html = [];
-  let inList = false;
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) {
-      if (inList) {
-        html.push("</ul>");
-        inList = false;
-      }
-      continue;
-    }
-
-    if (line.startsWith("# ")) {
-      if (inList) {
-        html.push("</ul>");
-        inList = false;
-      }
-      html.push(`<h1>${escapeHtml(line.slice(2))}</h1>`);
-      continue;
-    }
-
-    if (line.startsWith("## ")) {
-      if (inList) {
-        html.push("</ul>");
-        inList = false;
-      }
-      html.push(`<h2>${escapeHtml(line.slice(3))}</h2>`);
-      continue;
-    }
-
-    if (line.startsWith("- ")) {
-      if (!inList) {
-        html.push("<ul>");
-        inList = true;
-      }
-      html.push(`<li>${escapeHtml(line.slice(2))}</li>`);
-      continue;
-    }
-
-    if (inList) {
-      html.push("</ul>");
-      inList = false;
-    }
-    html.push(`<p>${escapeHtml(line)}</p>`);
-  }
-
-  if (inList) html.push("</ul>");
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Tailored Resume</title>
-  <style>
-    body { font-family: "Helvetica Neue", Arial, sans-serif; line-height: 1.5; margin: 32px; color: #111; }
-    h1 { margin: 0 0 10px; font-size: 28px; }
-    h2 { margin: 18px 0 8px; font-size: 18px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-    p { margin: 6px 0; }
-    ul { margin: 6px 0 12px 22px; padding: 0; }
-    li { margin: 4px 0; }
-  </style>
-</head>
-<body>
-${html.join("\n")}
-</body>
-</html>`;
-};
+export { markdownToHtml } from "./markdown.mjs";
 
 export const parseSeekUrlList = (content) =>
   String(content || "")

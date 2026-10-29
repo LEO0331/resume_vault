@@ -1,12 +1,3 @@
-const OUTPUT_SECTION_KEYS = {
-  summary: "summary",
-  coreSkills: "core-skills",
-  professionalExperience: "professional-experience",
-  selectedProjects: "selected-projects",
-  education: "education",
-  additional: "certifications-additional",
-};
-
 const normalizeHeading = (heading) =>
   String(heading || "")
     .toLowerCase()
@@ -45,14 +36,6 @@ const GENERIC_GAP_TOKENS = new Set([
   "web",
 ]);
 
-const toBulletLines = (block) =>
-  String(block || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.replace(/^[-*]\s+/, "").trim())
-    .filter(Boolean);
-
 const headingToEntryCategory = (heading) => {
   const normalized = normalizeHeading(heading);
   if (normalized.includes("summary") || normalized.includes("profile") || normalized.includes("摘要") || normalized.includes("自我")) {
@@ -70,38 +53,10 @@ const headingToEntryCategory = (heading) => {
   if (normalized.includes("achievement") || normalized.includes("award") || normalized.includes("additional") || normalized.includes("certification") || normalized.includes("成就") || normalized.includes("獎")) {
     return "achievement";
   }
-  return null;
-};
-
-const headingToOutputSection = (heading) => {
-  const normalized = normalizeHeading(heading);
-  if (normalized.includes("summary") || normalized.includes("profile") || normalized.includes("摘要") || normalized.includes("自我")) {
-    return OUTPUT_SECTION_KEYS.summary;
-  }
-  if (normalized.includes("core skills") || normalized === "skills" || normalized.includes("technical skills") || normalized.includes("skills") || normalized.includes("專長") || normalized.includes("技能")) {
-    return OUTPUT_SECTION_KEYS.coreSkills;
-  }
-  if (normalized.includes("professional experience") || normalized.includes("experience") || normalized.includes("employment") || normalized.includes("work") || normalized.includes("經歷") || normalized.includes("工作")) {
-    return OUTPUT_SECTION_KEYS.professionalExperience;
-  }
-  if (normalized.includes("selected projects") || normalized.includes("projects") || normalized.includes("project") || normalized.includes("專案") || normalized.includes("作品")) {
-    return OUTPUT_SECTION_KEYS.selectedProjects;
-  }
-  if (normalized.includes("education") || normalized.includes("學歷")) {
-    return OUTPUT_SECTION_KEYS.education;
-  }
-  if (normalized.includes("certification") || normalized.includes("additional") || normalized.includes("achievement") || normalized.includes("awards") || normalized.includes("證照") || normalized.includes("其他")) {
-    return OUTPUT_SECTION_KEYS.additional;
+  if (normalized.includes("education") || normalized.includes("學歷") || normalized.includes("教育")) {
+    return "education";
   }
   return null;
-};
-
-const formatSelectedEntryLine = (entry, targetSectionKey) => {
-  const entrySectionKey = headingToOutputSection(entry.title);
-  if (entry.category === "skill" || entrySectionKey === targetSectionKey) {
-    return entry.content;
-  }
-  return `${entry.title}: ${entry.content}`;
 };
 
 export const slugifySegment = (value) =>
@@ -112,7 +67,7 @@ export const slugifySegment = (value) =>
     .slice(0, 80) || "resume";
 
 export const buildContactLine = (contact) =>
-  [contact?.location, contact?.email, contact?.phone, contact?.linkedin]
+  [contact?.location, contact?.email, contact?.phone, contact?.linkedin, contact?.website]
     .map((value) => String(value || "").trim())
     .filter(Boolean)
     .join(" | ");
@@ -134,14 +89,11 @@ export const extractResumeHeader = (resumeMarkdown, contact = null) => {
       if (line.startsWith("#")) {
         break;
       }
-      contactLine = line;
-      break;
+      contactLine = [contactLine, line].filter(Boolean).join(" | ");
     }
   }
 
-  if (!contactLine) {
-    contactLine = buildContactLine(contact);
-  }
+  contactLine = dedupe([...contactLine.split(" | "), ...buildContactLine(contact).split(" | ")]).join(" | ");
 
   return {
     candidateName: name,
@@ -190,13 +142,39 @@ export const parseResumeMarkdownToEntries = (resumeMarkdown, locale = "en-AU") =
       continue;
     }
 
-    const lines = toBulletLines(section.lines.join("\n"));
-    for (const line of lines) {
+    // Role/project subsections remain one selectable unit with their dates and bullets.
+    const blocks = [];
+    let block = { title: section.heading, lines: [] };
+    const grouped = ["experience", "project", "education"].includes(category)
+      && section.lines.some((line) => /^###\s+/.test(line));
+    const flush = () => {
+      const lines = [...block.lines];
+      const firstContentIndex = lines.findIndex((line) => line.trim());
+      const dateRange = lines[firstContentIndex]?.trim().match(/^(\d{4}(?:-\d{2})?)\s*[-–—]\s*(\d{4}(?:-\d{2})?|Present|Current|至今|迄今)$/i);
+      if (dateRange) lines.splice(firstContentIndex, 1);
+      const content = lines.join("\n").trim();
+      if (content || block.title !== section.heading) blocks.push({
+        title: block.title, content,
+        ...(dateRange ? { startDate: dateRange[1], endDate: dateRange[2] } : {}),
+      });
+    };
+    for (const line of section.lines) {
+      const heading = line.match(/^###\s+(.+)$/);
+      if (grouped && heading) {
+        flush();
+        block = { title: heading[1].trim(), lines: [] };
+      } else if (grouped) {
+        block.lines.push(line);
+      } else if (line.trim()) {
+        blocks.push({ title: section.heading, content: line.trim().replace(/^[-*]\s+/, "") });
+      }
+    }
+    if (grouped) flush();
+    for (const item of blocks) {
       entries.push({
         id: `resume-entry-${entries.length + 1}`,
         category,
-        title: section.heading,
-        content: line,
+        ...item,
         locale,
         tags:
           category === "summary"
@@ -207,7 +185,7 @@ export const parseResumeMarkdownToEntries = (resumeMarkdown, locale = "en-AU") =
                 ? ["project", "delivery"]
                 : category === "skill"
                   ? ["skill", "tools", "tech"]
-                  : ["achievement", "award"],
+                  : category === "education" ? ["education"] : ["achievement", "award"],
         weight: category === "experience" ? 4 : 3,
         updatedAt: importedAt,
       });
@@ -229,6 +207,7 @@ export const parseTemplateInput = (templateText, locale = "en-AU") => {
         { name: "skill", maxItems: 8, preferredTags: ["skill", "tools", "tech"] },
         { name: "experience", maxItems: 5, preferredTags: ["experience", "work"] },
         { name: "project", maxItems: 3, preferredTags: ["project", "delivery"] },
+        { name: "education", maxItems: 3, preferredTags: ["education"] },
         { name: "achievement", maxItems: 3, preferredTags: ["achievement", "award"] },
       ],
     };
@@ -237,7 +216,8 @@ export const parseTemplateInput = (templateText, locale = "en-AU") => {
   try {
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.sections)) {
-      return parsed;
+      return { ...parsed, sections: parsed.sections.some((section) => section.name === "education")
+        ? parsed.sections : [...parsed.sections, { name: "education", maxItems: 3, preferredTags: ["education"] }] };
     }
   } catch {
     // Fall through to markdown parsing.
@@ -261,7 +241,7 @@ export const parseTemplateInput = (templateText, locale = "en-AU") => {
               ? ["project", "delivery"]
               : category === "skill"
                 ? ["skill", "tools", "tech"]
-                : ["achievement", "award"],
+                : category === "education" ? ["education"] : ["achievement", "award"],
     });
   }
 
@@ -277,7 +257,8 @@ export const parseTemplateInput = (templateText, locale = "en-AU") => {
             { name: "skill", maxItems: 8, preferredTags: ["skill", "tools", "tech"] },
             { name: "experience", maxItems: 5, preferredTags: ["experience", "work"] },
             { name: "project", maxItems: 3, preferredTags: ["project", "delivery"] },
-            { name: "achievement", maxItems: 3, preferredTags: ["achievement", "award"] },
+            { name: "education", maxItems: 3, preferredTags: ["education"] },
+        { name: "achievement", maxItems: 3, preferredTags: ["achievement", "award"] },
           ],
   };
 };
@@ -287,79 +268,38 @@ export const buildSelectedEntriesText = (entries) =>
     .map((entry) => `- [${entry.id}] (${entry.category}) ${entry.title}: ${entry.content}`)
     .join("\n");
 
-const getOutputSectionLines = (resumeSections, sectionKey) => {
-  const matched = resumeSections.find((section) => headingToOutputSection(section.heading) === sectionKey);
-  return matched ? toBulletLines(matched.lines.join("\n")) : [];
-};
-
 export const buildFallbackResumeMarkdown = ({
   candidateName,
   contactLine,
   selectedEntries,
   currentResumeMarkdown,
 }) => {
-  const currentSections = parseMarkdownSections(currentResumeMarkdown);
-  const summaryLines = dedupe([
-    ...selectedEntries.filter((entry) => entry.category === "summary").map((entry) => entry.content),
-    ...getOutputSectionLines(currentSections, OUTPUT_SECTION_KEYS.summary),
-  ]).slice(0, 3);
-
-  const skillLines = dedupe([
-    ...selectedEntries.filter((entry) => entry.category === "skill").flatMap((entry) => entry.content.split(/,\s*/)),
-    ...getOutputSectionLines(currentSections, OUTPUT_SECTION_KEYS.coreSkills),
-  ]).slice(0, 12);
-
-  const experienceLines = dedupe([
-    ...selectedEntries
-      .filter((entry) => entry.category === "experience")
-      .map((entry) => formatSelectedEntryLine(entry, OUTPUT_SECTION_KEYS.professionalExperience)),
-    ...getOutputSectionLines(currentSections, OUTPUT_SECTION_KEYS.professionalExperience),
-  ]).slice(0, 8);
-
-  const projectLines = dedupe([
-    ...selectedEntries
-      .filter((entry) => entry.category === "project")
-      .map((entry) => formatSelectedEntryLine(entry, OUTPUT_SECTION_KEYS.selectedProjects)),
-    ...getOutputSectionLines(currentSections, OUTPUT_SECTION_KEYS.selectedProjects),
-  ]).slice(0, 6);
-
-  const educationLines = dedupe(getOutputSectionLines(currentSections, OUTPUT_SECTION_KEYS.education));
-  const additionalLines = dedupe([
-    ...selectedEntries
-      .filter((entry) => entry.category === "achievement")
-      .map((entry) => formatSelectedEntryLine(entry, OUTPUT_SECTION_KEYS.additional)),
-    ...getOutputSectionLines(currentSections, OUTPUT_SECTION_KEYS.additional),
-  ]).slice(0, 6);
-
-  const sections = [
-    ["Summary", summaryLines],
-    ["Core Skills", skillLines],
-    ["Professional Experience", experienceLines],
-    ["Selected Projects", projectLines],
-    ["Education", educationLines],
-    ["Certifications / Additional Information", additionalLines],
+  // Legacy callers may provide education only in the original Markdown.
+  // Never append unselected employment/projects back into a tailored resume.
+  const education = selectedEntries.filter((entry) => entry.category === "education");
+  const entries = education.length ? selectedEntries : [
+    ...selectedEntries,
+    ...parseResumeMarkdownToEntries(currentResumeMarkdown).filter((entry) => entry.category === "education"),
   ];
-
-  const lines = [`# ${candidateName || "Candidate"}`];
-  if (contactLine) {
-    lines.push("");
-    lines.push(contactLine);
-  }
-
-  for (const [heading, sectionLines] of sections) {
-    lines.push("");
-    lines.push(`## ${heading}`);
-    lines.push("");
-    if (sectionLines.length > 0) {
-      for (const sectionLine of sectionLines) {
-        lines.push(`- ${sectionLine}`);
-      }
-    } else {
-      lines.push("- Not provided in current resume data.");
-    }
-  }
-
-  return `${lines.join("\n").trim()}\n`;
+  const locale = entries.find((entry) => entry.locale)?.locale ?? "en-AU";
+  const headings = locale === "zh-TW"
+    ? ["專業摘要", "技術技能", "工作經歷", "精選專案", "學歷", "成就與證照"]
+    : ["Professional Summary", "Technical Skills", "Professional Experience", "Selected Projects", "Education", "Achievements and Certifications"];
+  const categories = ["summary", "skill", "experience", "project", "education", "achievement"];
+  const sections = categories.flatMap((category, index) => {
+    const content = dedupe(entries.filter((entry) => entry.category === category).map((entry) => {
+      const title = entry.title && headingToEntryCategory(entry.title) !== category ? entry.title : "";
+      const body = String(entry.content || "").trim();
+      if (!body && !title) return "";
+      if (category === "summary") return body;
+      const bullets = body.split(/\r?\n/).filter((line) => line.trim())
+        .map((line) => /^[-*]\s+/.test(line) ? line : `- ${line}`).join("\n");
+      const dates = [entry.startDate, entry.endDate].filter(Boolean).join(" - ");
+      return [title ? `### ${title}` : "", dates, bullets].filter(Boolean).join("\n\n");
+    }));
+    return content.length ? [`## ${headings[index]}\n\n${content.join("\n\n")}`] : [];
+  });
+  return [candidateName ? `# ${candidateName}` : "", contactLine, ...sections].filter(Boolean).join("\n\n") + "\n";
 };
 
 export const fillPromptTemplate = (template, values) =>
@@ -466,7 +406,7 @@ export const mergeModelAnalysis = (baseAnalysis, modelAnalysis) => {
   };
 };
 
-export const validateTailoredResume = ({ resumeMarkdown, candidateName, contactLine }) => {
+export const validateTailoredResume = ({ resumeMarkdown, candidateName, contactLine, contactFragments: suppliedFragments }) => {
   const errors = [];
   const warnings = [];
   const text = String(resumeMarkdown || "");
@@ -483,28 +423,19 @@ export const validateTailoredResume = ({ resumeMarkdown, candidateName, contactL
   if (candidateName && !new RegExp(`^#\\s+${candidateName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "m").test(text)) {
     errors.push("resume.md must start with the candidate name H1.");
   }
-  const contactFragments = Array.isArray(contactLine)
+  const contactFragments = suppliedFragments ?? (Array.isArray(contactLine)
     ? contactLine
     : typeof contactLine === "string" && contactLine.trim()
       ? contactLine.split("|").map((part) => part.trim()).filter(Boolean)
-      : [];
+      : []);
   if (contactFragments.length > 0 && !contactFragments.every((fragment) => text.includes(fragment))) {
     errors.push("resume.md must include the available contact information.");
   }
 
-  const requiredHeadings = [
-    /^##\s+Summary\s*$/m,
-    /^##\s+Core Skills\s*$/m,
-    /^##\s+(Professional\s+Experience|Experience)\s*$/m,
-    /^##\s+Education\s*$/m,
-  ];
-  if (!requiredHeadings.every((pattern) => pattern.test(text))) {
-    errors.push("resume.md must include Summary, Core Skills, Experience, and Education sections.");
+  if (/Not provided in current resume data\.|^>\s*JD source:|\b(?:coverageScore|priority_overlap|matchedTokens)\b/m.test(text)) {
+    errors.push("resume.md must not contain placeholders or JD matching metadata.");
   }
-
-  if (/Not provided in current resume data\./.test(text)) {
-    warnings.push("One or more required sections had no source content and were filled with placeholders.");
-  }
+  if (!/^##\s+\S/m.test(text)) errors.push("resume.md must include at least one populated resume section.");
 
   return {
     errors,

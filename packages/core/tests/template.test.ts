@@ -57,9 +57,10 @@ describe("generateResume", () => {
   it("returns markdown with section headings and selected trace", () => {
     const result = generateResume(jd, entries, template);
 
-    expect(result.outputMd).toContain("# Tailored Resume");
-    expect(result.outputMd).toContain("## Summary");
-    expect(result.outputMd).toContain("## Experience");
+    expect(result.outputMd).not.toContain("Tailored Resume");
+    expect(result.outputMd).not.toContain("JD source");
+    expect(result.outputMd).toContain("## Professional Summary");
+    expect(result.outputMd).toContain("## Professional Experience");
     expect(result.trace.length).toBeGreaterThan(0);
     expect(result.trace.every((item) => item.entryId === "s1" || item.entryId === "k1" || item.entryId === "x1")).toBe(true);
     expect(result.matchReport).toBeDefined();
@@ -79,8 +80,8 @@ describe("generateResume", () => {
     };
 
     const result = generateResume(jd, entries, reorderedTemplate);
-    const experienceIndex = result.outputMd.indexOf("## Experience");
-    const summaryIndex = result.outputMd.indexOf("## Summary");
+    const experienceIndex = result.outputMd.indexOf("## Professional Experience");
+    const summaryIndex = result.outputMd.indexOf("## Professional Summary");
 
     expect(experienceIndex).toBeGreaterThan(-1);
     expect(summaryIndex).toBeGreaterThan(-1);
