@@ -42,8 +42,8 @@ Default flow:
 Advanced template editing and custom resume import are available in the **Advanced** section.
 
 Storage behavior:
-- On the same computer, browser, and site path, data persists after reopening the page.
-- Data does not carry over automatically after clearing browser data, switching browser, or switching device.
+- Data persists in the same browser and origin (scheme, hostname, and port). Other pages on that origin can access it, even at different paths.
+- Use the local app or a dedicated domain for private resumes. Export DB JSON before clearing browser data or moving to a new browser, device, or origin, then import it there.
 
 ## Build and Verify
 
@@ -73,8 +73,9 @@ This live lane runs `jd-fetch` against a real job page, imports the fetched JSON
 Deployment workflow: `.github/workflows/deploy-gh-pages.yml`
 
 - Push to `main` to trigger deploy
-- Build uses `VITE_BASE_PATH=/${repo-name}/`
+- The build uses the path reported by GitHub Pages, including the root path when the repository has its own custom domain.
 - Output is published from `apps/web/dist`
+- To isolate browser storage from other Pages projects, configure a dedicated custom domain for this repository in Settings → Pages, then run the deployment workflow. Use **Export DB JSON** at the existing URL before changing it and **Import DB JSON** at the new URL.
 
 ## Sample Data and Outputs
 

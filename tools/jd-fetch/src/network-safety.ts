@@ -88,7 +88,7 @@ export const shouldBlockRequestUrl = async (rawUrl: string): Promise<boolean> =>
     return false;
   }
 
-  if (!["http:", "https:"].includes(parsed.protocol)) {
+  if (!["http:", "https:", "ws:", "wss:"].includes(parsed.protocol)) {
     return false;
   }
 

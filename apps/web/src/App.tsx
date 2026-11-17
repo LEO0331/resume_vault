@@ -4,7 +4,7 @@ import { createTemplateFromImportedEntries, mergeImportedEntries, mergeImportedT
 import { buildObsidianFilename, buildObsidianMarkdown } from "./obsidian";
 import { ensureStarterTemplates, getDefaultTemplateId, type AppLocale } from "./template-presets";
 
-import { emptyState, normalizeState, type StoredState } from "./stored-state";
+import { emptyState, recoverStoredState, validateBackup, type StoredState } from "./stored-state";
 
 type StatusTone = "success" | "error";
 
@@ -215,7 +215,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     outputMarkdown: "輸出 Markdown",
     outputCoverLetter: "輸出 Cover Letter",
     outputTrace: "輸出 Trace JSON",
-    storageNoticePersist: "同一台電腦、同一個瀏覽器、同一個網域路徑下，重開頁面資料會保留。",
+    storageNoticePersist: "資料會保留在目前瀏覽器。同一網站的其他路徑也能存取這些資料，私人履歷建議使用本機版或專用網域。",
     storageNoticeLimit: "清瀏覽器資料、換瀏覽器或換裝置後，不會自動帶入原資料。",
     msgStarterTemplatesEnsured: "已補齊內建模板：澳洲 ATS 標準（時間倒序）＋ AU ATS Standard（Chronological）。",
     msgJdImported: "職位描述 JSON 已匯入。",
@@ -332,7 +332,7 @@ const UI_TEXT: Record<AppLocale, UiText> = {
     outputMarkdown: "Output Markdown",
     outputCoverLetter: "Output Cover Letter",
     outputTrace: "Trace JSON",
-    storageNoticePersist: "On the same computer, browser, and site path, your data persists after reopening.",
+    storageNoticePersist: "Data stays in this browser and is accessible to other pages on the same site. Use a local instance or dedicated domain for private resumes.",
     storageNoticeLimit: "Data does not carry over automatically after clearing browser data, switching browser, or switching device.",
     msgStarterTemplatesEnsured: "Starter templates ensured: AU ATS Standard (Chronological) + 澳洲 ATS 標準（時間倒序）.",
     msgJdImported: "JD JSON imported.",
@@ -390,14 +390,9 @@ const isAllowedJdDomain = (rawUrl: string, locale: AppLocale): boolean => {
 };
 
 const safeParse = (): StoredState => {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return emptyState();
-  }
-
   try {
-    const parsed = parseJsonSafely<Partial<StoredState>>(raw);
-    return normalizeState(parsed);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? recoverStoredState(parseJsonSafely<unknown>(raw)) : emptyState();
   } catch {
     return emptyState();
   }
@@ -779,8 +774,7 @@ const App = () => {
 
     try {
       const raw = await file.text();
-      const parsed = parseJsonSafely<Partial<StoredState>>(raw);
-      const restored = normalizeState(parsed);
+      const restored = validateBackup(parseJsonSafely<unknown>(raw));
       writeState(restored);
       setSelectedTemplateId(getDefaultTemplateId(activeLocale, restored.templates));
       setSelectedJobId(restored.jobs[0]?.id ?? "");

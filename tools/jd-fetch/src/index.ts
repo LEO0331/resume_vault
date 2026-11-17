@@ -38,10 +38,10 @@ const run = async (): Promise<void> => {
   const adapter = resolveAdapter(url);
 
   const browser = await chromium.launch({ headless: !headed });
-  const context = await browser.newContext();
-  const page = await context.newPage();
-
   try {
+    const context = await browser.newContext({
+      serviceWorkers: allowPrivateNetwork ? "allow" : "block",
+    });
     if (!allowPrivateNetwork) {
       await context.route("**/*", async (route) => {
         const requestUrl = route.request().url();
@@ -52,8 +52,17 @@ const run = async (): Promise<void> => {
 
         await route.continue();
       });
+      await context.routeWebSocket("**/*", async (socket) => {
+        if (await shouldBlockRequestUrl(socket.url())) {
+          await socket.close();
+          return;
+        }
+
+        socket.connectToServer();
+      });
     }
 
+    const page = await context.newPage();
     await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 90000 });
     await page.waitForTimeout(2000);
 
@@ -73,7 +82,6 @@ const run = async (): Promise<void> => {
       console.log(`Warnings: ${extracted.warnings.join(" | ")}`);
     }
   } finally {
-    await context.close();
     await browser.close();
   }
 };

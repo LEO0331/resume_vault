@@ -7,10 +7,10 @@ export const STARTER_TEMPLATE_ID_BY_LOCALE: Record<AppLocale, string> = {
   "en-AU": "starter-ats-au-standard-en",
 };
 
-const LEGACY_STARTER_ID_MIGRATION: Record<string, string> = {
-  "starter-reverse-chronological": STARTER_TEMPLATE_ID_BY_LOCALE["en-AU"],
-  "starter-hybrid-combination": STARTER_TEMPLATE_ID_BY_LOCALE["zh-TW"],
-};
+const LEGACY_STARTER_ID_MIGRATION = new Map<string, string>([
+  ["starter-reverse-chronological", STARTER_TEMPLATE_ID_BY_LOCALE["en-AU"]],
+  ["starter-hybrid-combination", STARTER_TEMPLATE_ID_BY_LOCALE["zh-TW"]],
+]);
 
 export const starterTemplates: ResumeTemplate[] = [
   {
@@ -47,7 +47,7 @@ const resolveStarterId = (templateId: string): string | undefined => {
   if (starterById.has(templateId)) {
     return templateId;
   }
-  return LEGACY_STARTER_ID_MIGRATION[templateId];
+  return LEGACY_STARTER_ID_MIGRATION.get(templateId);
 };
 
 export const ensureStarterTemplates = (templates: ResumeTemplate[]): ResumeTemplate[] => {

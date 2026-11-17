@@ -57,6 +57,14 @@ describe("network-safety", () => {
     await expect(shouldBlockRequestUrl("https://unknown.example")).resolves.toBe(true);
   });
 
+  it("applies the network policy to WebSocket destinations", async () => {
+    const { shouldBlockRequestUrl } = await import("../src/network-safety");
+    lookupMock.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
+
+    await expect(shouldBlockRequestUrl("ws://localhost:3000")).resolves.toBe(true);
+    await expect(shouldBlockRequestUrl("wss://socket.example")).resolves.toBe(false);
+  });
+
   it("blocks empty hostname values and allows public ip literal", async () => {
     const { isPrivateHost } = await import("../src/network-safety");
 
