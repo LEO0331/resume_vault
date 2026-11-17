@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeState } from "./stored-state";
+import { normalizeState, recoverStoredState, validateBackup } from "./stored-state";
 import { parseImportedProfile, parseImportedResume } from "./imported-resume";
 
 describe("stored resume migration", () => {
@@ -28,5 +28,42 @@ describe("stored resume migration", () => {
     });
     expect(restored.entries.find((entry) => entry.category === "education")).toMatchObject({ title: "Example University", content: "Bachelor of Engineering, 2022" });
     expect(restored.entries).toHaveLength(2);
+  });
+});
+
+describe("saved state validation", () => {
+  const entries = parseImportedResume("## Experience\n- Built local tools.", "en-AU");
+  const template = { id: "toString", name: "Custom", locale: "en-AU", sections: [{ name: "experience", maxItems: 2 }] };
+  const job = { id: "job", sourceType: "paste", rawText: "Example job", createdAt: "2026-04-14T10:00:00.000Z" };
+  const backup = { entries, templates: [template], jobs: [job] };
+
+  it("restores v1 backups with valid entries, templates and jobs", () => {
+    const restored = validateBackup(backup);
+    expect(restored.entries).toEqual(entries);
+    expect(restored.templates).toContainEqual(template);
+    expect(restored.jobs).toEqual([job]);
+    expect(restored.profile).toEqual({});
+  });
+
+  it.each([
+    { entries: [null] },
+    { templates: [{ ...template, sections: [{ name: "experience", maxItems: "2" }] }] },
+    { jobs: [{ ...job, rawText: [] }] },
+    { profile: { phone: 123 } },
+  ])("rejects a backup containing an invalid value", (invalid) => {
+    expect(() => validateBackup({ ...backup, ...invalid })).toThrow("Invalid resume vault backup");
+  });
+
+  it("recovers valid records and profile fields on startup", () => {
+    const restored = recoverStoredState({
+      entries: [null, ...entries],
+      templates: [template, { ...template, sections: null }],
+      jobs: [job, false],
+      profile: { name: "Alex Example", phone: 123 },
+    });
+    expect(restored.entries).toEqual(entries);
+    expect(restored.templates).toContainEqual(template);
+    expect(restored.jobs).toEqual([job]);
+    expect(restored.profile).toEqual({ name: "Alex Example" });
   });
 });
